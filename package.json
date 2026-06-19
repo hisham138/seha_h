@@ -1,0 +1,7 @@
+{
+  "name": "seha-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "منصة صحة - إصدار التقارير وقاعدة بيانات الإجازات المرضية",
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>مشهد مراجعة - Statement of Visit</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&family=Times+New+Roman:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans Arabic', sans-serif; background: #f0f2f5; padding: 20px; direction: rtl; }
+        .form-card { background: white; max-width: 850px; margin: auto; padding: 30px; border-radius: 12px; border-top: 8px solid #1e4a7a; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 10px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: 'Noto Sans Arabic'; }
+        .btn-gen { width: 100%; padding: 18px; background: #1e4a7a; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .sh { background: #f8f9fa; padding: 8px; margin: 15px 0; color: #1e4a7a; font-weight: bold; border-right: 4px solid #1e4a7a; }
+        .db-section { background: #eff6ff; padding: 15px; border-radius: 8px; border: 1px solid #3b82f6; margin-bottom: 20px; }
+        .special-note { font-size: 11px; color: #666; font-weight: normal; margin-top: 2px; }
+        .hijri-input { background: #fffdf0 !important; border: 1px solid #ebda8d !important; font-weight: bold; color: #1e4a7a; }
+    </style>
+</head>
+<body>
+
+<div class="form-card">
+    <h2 style="text-align:center; color:#1e4a7a;" id="formTitle">إدخال بيانات مشهد المراجعة</h2>
+    
+    
+    
+    <div class="db-section">
+        <div class="sh" style="margin-top:0;">البحث السريع في قاعدة البيانات</div>
+        <div class="grid">
+            <div><label>المنطقة</label><select id="selRegion" onchange="updateFilters()"><option value="">-- اختر المنطقة --</option></select></div>
+            <div><label>نوع المنشأة</label><select id="selType" onchange="updateFilters()"><option value="">-- اختر النوع --</option><option value="خاص">خاص</option><option value="حكومي">حكومي</option></select></div>
+        </div>
+        <div class="grid">
+            <div>
+                <label>المنشأة</label>
+                <input type="text" id="hospSearch" placeholder="🔍 ابحث باسم المنشأة..." oninput="updateFilters()" style="margin-bottom:6px; background:#fffbe6; border:1px solid #ffe58f;">
+                <select id="selHospital" onchange="updateFilters()"><option value="">-- اختر المنشأة --</option></select>
+            </div>
+            <div><label>التخصص</label><select id="selSpecialty" onchange="updateFilters()"><option value="">-- اختر التخصص --</option></select></div>
+        </div>
+        <label>اسم الطبيب</label>
+        <select id="selDoctor" onchange="applyDoctorData()"><option value="">-- اختر الطبيب الممارس --</option></select>
+    </div>
+
+    <form id="reportForm">
+        <div class="sh">التوثيق والنظام (توليد آلي)</div>
+        <div class="grid">
+            <div>
+                <label>رمز الخدمة (Service Code)</label>
+                <input type="text" id="serviceCode" style="background: #fffbe6; border: 1px solid #ffe58f;">
+            </div>
+            <div>
+                <label>تاريخ ووقت الطباعة</label>
+                <input type="datetime-local" id="printDateTime" style="background: #fffbe6; border: 1px solid #ffe58f;">
+            </div>
+        </div>
+
+        <div class="sh" id="patientSectionTitle">بيانات المريض والتواريخ</div>
+        <div class="grid">
+            <div><label id="lblNameAr">الاسم (عربي)</label><input type="text" id="nameAr" required></div>
+            <div><label id="lblNameEn">Name (English)</label><input type="text" id="nameEn" dir="ltr" required></div>
+        </div>
+        <div class="grid">
+            <div><label>رقم الهوية / الإقامة</label><input type="text" id="natID" required></div>
+            <div><label>الجنسية</label><input type="text" id="nationAr" value="السعودية"></div>
+        </div>
+
+        <div class="grid">
+            <div><label>تاريخ ووقت الدخول (ميلادي)</label><input type="datetime-local" id="dIn" onchange="calc()"></div>
+            <div><label>تاريخ الدخول (هجري - قابل للتعديل)</label><input type="text" id="dInHij" class="hijri-input"></div>
+        </div>
+        <div class="grid">
+            <div><label>تاريخ ووقت الخروج (ميلادي)</label><input type="datetime-local" id="dOut" onchange="calc()"></div>
+            <div><label>تاريخ الخروج (هجري - قابل للتعديل)</label><input type="text" id="dOutHij" class="hijri-input"></div>
+        </div>
+        <div class="grid">
+            <div><label>تاريخ الإصدار</label><input type="date" id="dIss"></div>
+            <div><label>فترة الانتظار (محسوبة آلياً)</label><input type="text" id="waitPeriod" readonly style="background:#f9f9f9;"></div>
+        </div>
+        <div class="grid">
+            <div><label>نوع الزيارة (عربي)</label>
+                <select id="visitTypeAr" onchange="syncVisitType()">
+                    <option value="المختبرات">المختبرات</option>
+                    <option value="عيادات">عيادات</option>
+                    <option value="تنويم">تنويم</option>
+                    <option value="طوارئ">طوارئ</option>
+                </select>
+            </div>
+            <div><label>Visit Type (English)</label>
+                <select id="visitTypeEn">
+                    <option value="Laboratory">Laboratory</option>
+                    <option value="InPatient">InPatient</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="OutPatient">OutPatient</option>
+                </select>
+            </div>
+        </div>
+        <div class="grid">
+            <div><label>جهة العمل (عربي)</label><input type="text" id="empAr" value="الى من يهمه الأمر"></div>
+            <div><label>Employer (English)</label><input type="text" id="empEn" value=" " dir="ltr"></div>
+        </div>
+
+        <div class="sh">بيانات المنشأة (متقدم)</div>
+        <div style="margin-bottom:15px;">
+            <label>رابط شعار المنشأة الخاص (اختياري)</label>
+            <input type="text" id="customLogo" placeholder="ضع رابط شعار المستشفى هنا..">
+        </div>
+        <div class="grid">
+    <div>
+        <label>رقم ترخيص المنشأة (قابل للتعديل)</label>
+        <input type="text" id="hospLic" placeholder="أدخل رقم ترخيص المنشأة هنا..">
+    </div>
+    <div>
+        </div>
+</div>
+        <div class="grid">
+            <div><label>اسم المنشأة (عربي)</label><input type="text" id="hospAr" required></div>
+            <div><label>Hospital (English)</label><input type="text" id="hospEn" dir="ltr" required></div>
+        </div>
+        <div class="grid">
+            <div><label>اسم الممارس (عربي)</label><input type="text" id="docAr" required></div>
+            <div><label>Practitioner (English)</label><input type="text" id="docEn" dir="ltr" required></div>
+        </div>
+        <div class="grid">
+            <div><label>المسمى الوظيفي (عربي)</label><input type="text" id="jobAr" required></div>
+            <div><label>Position (English)</label><input type="text" id="jobEn" dir="ltr" required></div>
+        </div>
+        <input type="hidden" id="resID">
+
+        <button type="button" class="btn-gen" onclick="printReport()">توليد التقرير النهائي</button>
+    </form>
+</div>
+
+<script>
+    function getHijriValue(dateStr) {
+        if(!dateStr) return "";
+        const date = new Date(dateStr);
+        let formatter = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', {
+            day: '2-digit', month: '2-digit', year: 'numeric'
+        }).format(date);
+        
+        let parts = formatter.split('/');
+        return parts[0] + '-' + parts[1] + '-' + parts[2];
+    }
+
+    function generate11Digits() {
+        return Math.floor(Math.random() * 90000000000) + 10000000000;
+    }
+
+    const db = [
+        { id: 1, name: "أحمد أبو عامر", nameEn: "Ahmed Abu Amer", degree: "نائب", degreeEn: "Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع طويق الطبي", hospitalEn: "Tuwaiq Medical Complex", hospitalType: "خاص", region: "الرياض" },
+        { id: 2, name: "إيسم بدرون", nameEn: "Esm Badron", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "أنف وأذن وحنجرة", specialtyEn: "ENT", hospital: "مجمع طويق الطبي", hospitalEn: "Tuwaiq Medical Complex", hospitalType: "خاص", region: "الرياض" },
+        { id: 3, name: "عبدالله ناصر القصير", nameEn: "Abdullah Nasser Al-Qassir", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "أسنان عامة", specialtyEn: "General Dentistry", hospital: "مجمع طويق الطبي", hospitalEn: "Tuwaiq Medical Complex", hospitalType: "خاص", region: "الرياض" },
+        { id: 4, name: "عبدالرحمن سالم النهدي", nameEn: "Abdulrahman Salem Al-Nahdi", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع طويق الطبي", hospitalEn: "Tuwaiq Medical Complex", hospitalType: "خاص", region: "الرياض" },
+            { id: 5, name: "رشا سامي", nameEn: "Rasha Sami", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستشفى بنان الطبي", hospitalEn: "Banan Medical Hospital", hospitalType: "خاص", region: "الرياض" },
+   { id: 6, name: "لولوه العقيلي", nameEn: "Lulwah Al-Aqeeli", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستشفى بنان الطبي", hospitalEn: "Banan Medical Hospital", hospitalType: "خاص", region: "الرياض" },
+    { id: 7, name: "خالد أحمد التركي", nameEn: "Khalid Ahmed Al-Turki", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (جهاز هضمي)", specialtyEn: "Internal Medicine (Gastroenterology)", hospital: "مستشفى المملكة التخصصي", hospitalEn: "Kingdom Specialized Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/y81J0wsw/1781477358586.png", hospitalLic: "" },
+  { id: 8, name: "فاطمة عبدالعزيز العتيبي", nameEn: "Fatima Abdulaziz Al-Otaibi", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستشفى المملكة التخصصي", hospitalEn: "Kingdom Specialized Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/y81J0wsw/1781477358586.png", hospitalLic: "" },
+  { id: 9, name: "عبدالرحمن إبراهيم السليم", nameEn: "Abdulrahman Ibrahim Al-Saleem", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى المملكة التخصصي", hospitalEn: "Kingdom Specialized Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/y81J0wsw/1781477358586.png", hospitalLic: "" },
+  { id: 19, name: "محمد سعد الحميد", nameEn: "Mohammed Saad Al-Hamid", degree: "استشاري", degreeEn: "Consultant", specialty: "جراحة مخ وأعصاب", specialtyEn: "Neurosurgery", hospital: "مستشفى المملكة التخصصي", hospitalEn: "Kingdom Specialized Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/y81J0wsw/1781477358586.png", hospitalLic: "" },
+  { id: 20, name: "سعود عبدالله الفريح", nameEn: "Saud Abdullah Al-Farih", degree: "أخصائي أول", degreeEn: "Senior Specialist", specialty: "مسالك بولية", specialtyEn: "Urology", hospital: "مستشفى المملكة التخصصي", hospitalEn: "Kingdom Specialized Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/y81J0wsw/1781477358586.png", hospitalLic: "" },
+  { id: 21, name: "ناصر محمد القحطاني", nameEn: "Naser Mohammed Al Qahtani", degree: "استشاري", degreeEn: "Consultant", specialty: "أنف وأذن وحنجرة", specialtyEn: "ENT", hospital: "مستشفى المملكة التخصصي", hospitalEn: "Kingdom Specialized Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/y81J0wsw/1781477358586.png", hospitalLic: "" },
+  { id: 10, name: "منى عبدالعزيز الحربي", nameEn: "Mona Abdulaziz Al-Harbi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الدكتور سليمان الحبيب", hospitalEn: "Dr. Sulaiman Al-Habib Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/z3Y51tbw/1781272804045.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>1410100001</span>" },
+  { id: 11, name: "خالد يوسف المطيري", nameEn: "Khalid Yousef Al-Mutairi", degree: "استشاري", degreeEn: "Consultant", specialty: "أنف وأذن وحنجرة", specialtyEn: "ENT", hospital: "مستشفى الدكتور سليمان الحبيب", hospitalEn: "Dr. Sulaiman Al-Habib Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/z3Y51tbw/1781272804045.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>1410100001</span>" },
+  { id: 12, name: "ماجد الماضي", nameEn: "Majid Al-Madi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (جهاز هضمي)", specialtyEn: "Internal Medicine (Gastroenterology)", hospital: "مستشفى الملك خالد الجامعي", hospitalEn: "King Khalid University Hospital", hospitalType: "حكومي", region: "الرياض" },
+  { id: 13, name: "محمد خالد القحطاني", nameEn: "Mohammed Khalid Al-Qahtani", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الملك خالد الجامعي", hospitalEn: "King Khalid University Hospital", hospitalType: "حكومي", region: "الرياض" },
+  { id: 14, name: "فيصل", nameEn: "Faisal", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب طوارئ", specialtyEn: "Emergency Medicine", hospital: "مستشفى الدرعية", hospitalEn: "Al-Diriyah Hospital", hospitalType: "حكومي", region: "الرياض" },
+  { id: 15, name: "عبد الكريم", nameEn: "Abdul Karim", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الدرعية", hospitalEn: "Al-Diriyah Hospital", hospitalType: "حكومي", region: "الرياض" },
+  { id: 16, name: "فاطمة", nameEn: "Fatima", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مجمع صفا مكة الطبي", hospitalEn: "Safa Makkah Medical Complex", hospitalType: "خاص", region: "الرياض" },
+  { id: 17, name: "محمد سالم خان", nameEn: "Mohammed Salem Khan", degree: "طبيب", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مجمع صفا مكة الطبي", hospitalEn: "Safa Makkah Medical Complex", hospitalType: "خاص", region: "الرياض" },
+  { id: 18, name: "فاطمة عبدالله السالم", nameEn: "Fatima Abdullah Al-Salem", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستشفى الملك فيصل التخصصي", hospitalEn: "King Faisal Specialist Hospital", hospitalType: "حكومي", region: "الرياض" },
+  { id: 22, name: "نايف", nameEn: "Naif", degree: "طبيب", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 23, name: "رنين", nameEn: "Raneem", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 24, name: "نوف", nameEn: "Nouf", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 25, name: "ندى", nameEn: "Nada", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 26, name: "أريج", nameEn: "Areej", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 27, name: "نجاة", nameEn: "Najat", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 28, name: "رنا", nameEn: "Rana", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 29, name: "سلمى", nameEn: "Salma", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 30, name: "فاطمة الفالح", nameEn: "Fatima Al-Faleh", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 31, name: "مها فلفلان", nameEn: "Maha Falflan", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 32, name: "ميسره عبدالقادر", nameEn: "Maysarah Abdulqader", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مركز صحي قويزة", hospitalEn: "Quwayzah Health Center", hospitalType: "حكومي", region: "مكة" },
+  { id: 33, name: "محمد رضوان", nameEn: "Mohammed Radwan", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستوصف الياسمين", hospitalEn: "Al-Yasmin Clinic", hospitalType: "خاص", region: "مكة" },
+  { id: 34, name: "نبيهة", nameEn: "Nabihah", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مستوصف الياسمين", hospitalEn: "Al-Yasmin Clinic", hospitalType: "خاص", region: "مكة" },
+  { id: 35, name: "البراء الظاهري", nameEn: "Al-Baraa Al-Dhahiri", degree: "طبيب", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستوصف الياسمين", hospitalEn: "Al-Yasmin Clinic", hospitalType: "خاص", region: "مكة" },
+  { id: 36, name: "أشرف", nameEn: "Ashraf", degree: "طبيب", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستوصف الياسمين", hospitalEn: "Al-Yasmin Clinic", hospitalType: "خاص", region: "مكة" },
+  { id: 37, name: "أحمد الجهني", nameEn: "Ahmed Al-Juhani", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (صدرية)", specialtyEn: "Internal Medicine (Pulmonology)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 38, name: "إيقان أحمد", nameEn: "Iqan Ahmed", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية وشيخوخة", specialtyEn: "Internal Medicine (Geriatrics)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 39, name: "أنوف عبد المجيد نعمة الله", nameEn: "Anouf Abdul Majeed Nimah Allah", degree: "استشارية", degreeEn: "Consultant", specialty: "أمراض معدية", specialtyEn: "Infectious Diseases", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 40, name: "أروى جمال", nameEn: "Arwa Jamal", degree: "استشارية", degreeEn: "Consultant", specialty: "باطنية (صدرية)", specialtyEn: "Internal Medicine (Pulmonology)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 41, name: "فيصل عبدالله الجهني", nameEn: "Faisal Abdullah Al-Juhani", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (غدد صماء)", specialtyEn: "Internal Medicine (Endocrinology)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 42, name: "فهمي الظاهري", nameEn: "Fahmi Al-Dhahiri", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (كلى)", specialtyEn: "Internal Medicine (Nephrology)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 43, name: "فواز سكلوع", nameEn: "Fawaz Sakloua", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (صدرية)", specialtyEn: "Internal Medicine (Pulmonology)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 44, name: "هنادي الهذلي", nameEn: "Hanadi Al-Hadhli", degree: "استشارية", degreeEn: "Consultant", specialty: "باطنية (كلى)", specialtyEn: "Internal Medicine (Nephrology)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 45, name: "حنان مهدي", nameEn: "Hanan Mahdi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية عامة", specialtyEn: "General Internal Medicine", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 46, name: "هند عاصم أحمد", nameEn: "Hind Asim Ahmed", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية عامة", specialtyEn: "General Internal Medicine", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 47, name: "حسام أحمد البيضا", nameEn: "Husam Ahmed Al-Bayda", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية عامة", specialtyEn: "General Internal Medicine", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 48, name: "جيهان يوسف المسلماني", nameEn: "Jihan Yousef Al-Muslimani", degree: "استشارية", degreeEn: "Consultant", specialty: "باطنية عامة", specialtyEn: "General Internal Medicine", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 49, name: "خالد بايمين", nameEn: "Khalid Baymeen", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (غدد صماء)", specialtyEn: "Internal Medicine (Endocrinology)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 50, name: "سهى عيسى", nameEn: "Suha Issa", degree: "استشارية", degreeEn: "Consultant", specialty: "باطنية عامة", specialtyEn: "General Internal Medicine", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 51, name: "موسى البلوي", nameEn: "Musa Al-Balawi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (روماتيزم)", specialtyEn: "Internal Medicine (Rheumatology)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 52, name: "نورة الجهني", nameEn: "Noura Al-Juhani", degree: "استشارية", degreeEn: "Consultant", specialty: "باطنية (روماتيزم)", specialtyEn: "Internal Medicine (Rheumatology)", hospital: "مستشفى الدكتور سليمان فقيه", hospitalEn: "Dr. Sulaiman Fakeeh Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 53, name: "محمد رفعت مصرجي", nameEn: "Mohammed Rifaat Masri", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى غسان نجيب فرعون", hospitalEn: "GNP Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 54, name: "غازي حبيب", nameEn: "Ghazi Habib", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى غسان نجيب فرعون", hospitalEn: "GNP Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 55, name: "عبد الله الحبيب", nameEn: "Abdullah Al-Habib", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى غسان نجيب فرعون", hospitalEn: "GNP Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 56, name: "عبدالرحمن خليل", nameEn: "Abdulrahman Khalil", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى غسان نجيب فرعون", hospitalEn: "GNP Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 57, name: "طارق البشري", nameEn: "Tariq Al-Bishri", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى غسان نجيب فرعون", hospitalEn: "GNP Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 58, name: "مهند قاره", nameEn: "Muhannad Qarah", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى غسان نجيب فرعون", hospitalEn: "GNP Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 59, name: "رحاب مختار", nameEn: "Rehab Mokhtar", degree: "أخصائي", degreeEn: "Specialist", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع عيادات النموذجي الطبي", hospitalEn: "Al Namouthaji Medical Clinics", hospitalType: "خاص", region: "مكة" },
+  { id: 60, name: "محمد أبو بكر", nameEn: "Mohammed Abu Bakr", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع شفاء البوادي", hospitalEn: "SHIFA AL BAWADI POLYCLINIC", hospitalType: "خاص", region: "مكة",  hospitalLogo: "https://i.postimg.cc/g0Jgp1XL/1781283175396.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3819 24222</span>" },
+  { id: 61, name: "زاهر فؤاد", nameEn: "Zaher Fouad", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع شفاء البوادي", hospitalEn: "SHIFA AL BAWADI POLYCLINIC", hospitalType: "خاص", region: "مكة",hospitalLogo: "https://i.postimg.cc/g0Jgp1XL/1781283175396.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3819 24222</span>"  },
+  { id: 62, name: "عمر شلبي", nameEn: "Omar Shalaby", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع الشفاء الطبي", hospitalEn: "Al Shifa Medical Complex", hospitalType: "خاص", region: "مكة", hospitalLogo: "https://i.postimg.cc/bNjQz4DB/1781280531096.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3819 24222</span>"  },
+  { id: 63, name: "محمد بديع نجم", nameEn: "Mohammed Badie Najm", degree: "طبيب", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع الشفاء الطبي", hospitalEn: "Al Shifa Medical Complex", hospitalType: "خاص", region: "مكة" , hospitalLogo: "https://i.postimg.cc/bNjQz4DB/1781280531096.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3819 24222</span>" },
+  { id: 64, name: "هند محمد القرني", nameEn: "Hind Mohammed Al-Qarni", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "أنف وأذن وحنجرة", specialtyEn: "ENT", hospital: "مستشفى باقدو والدكتور عرفان العام", hospitalEn: "Baghdadi & Dr. Irfan General Hospital", hospitalType: "خاص", region: "مكة" , hospitalLogo: "https://i.postimg.cc/d0gvJVzk/1780147065754.png" },
+  { id: 65, name: "طارق سعيد الغامدي", nameEn: "Tariq Saeed Al-Ghamdi", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى باقدو والدكتور عرفان العام", hospitalEn: "Baghdadi & Dr. Irfan General Hospital", hospitalType: "خاص", region: "مكة"  , hospitalLogo: "https://i.postimg.cc/d0gvJVzk/1780147065754.png" },
+  { id: 66, name: "شرويت", nameEn: "Shorwit", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الأطباء المتحدون", hospitalEn: "United Doctors Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 67, name: "حلبيه", nameEn: "Halabiyah", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الأطباء المتحدون", hospitalEn: "United Doctors Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 68, name: "تهاني", nameEn: "Tahani", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الأطباء المتحدون", hospitalEn: "United Doctors Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 69, name: "تنوير أحمد", nameEn: "Tanweer Ahmed", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية (سكري)", specialtyEn: "Internal Medicine (Diabetes)", hospital: "مجمع آسيا الطبي", hospitalEn: "Asia Medical Complex", hospitalType: "خاص", region: "مكة" },
+  { id: 71, name: "فتحية زين العابدين", nameEn: "Fathiya Zain Al-Abideen", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى العدواني العام", hospitalEn: "Al-Adwani General Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 72, name: "حسام الدين سلامة", nameEn: "Husam Al-Din Salama", degree: "طبيب", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى العدواني العام", hospitalEn: "Al-Adwani General Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 73, name: "كامل عباس", nameEn: "Kamel Abbas", degree: "طبيب", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى العدواني العام", hospitalEn: "Al-Adwani General Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 74, name: "محمود خليفة", nameEn: "Mahmoud Khalifa", degree: "طبيب", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى العدواني العام", hospitalEn: "Al-Adwani General Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 75, name: "بدور الشرعبي", nameEn: "Bodour Al-Sharabi", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى العدواني العام", hospitalEn: "Al-Adwani General Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 76, name: "خالد شودري", nameEn: "Khalid Chaudhry", degree: "طبيب", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى العدواني العام", hospitalEn: "Al-Adwani General Hospital", hospitalType: "خاص", region: "مكة" },
+  { id: 77, name: "نهى عبد السلام", nameEn: "Noha Abdul Salam", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى المواساة", hospitalEn: "Al-Mawasah Hospital", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/rpW6kYj6/d3256e03-ec41-48db-b523-f76690b3f334-767.webp" },
+  { id: 78, name: "نبيل سعود الشافعي", nameEn: "Nabil Saud Al-Shafei", degree: "استشاري", degreeEn: "Consultant", specialty: "جراحة مخ وأعصاب", specialtyEn: "Neurosurgery", hospital: "مستشفى المواساة", hospitalEn: "Al-Mawasah Hospital", hospitalType: "خاص", region: "الشرقية", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/rpW6kYj6/d3256e03-ec41-48db-b523-f76690b3f334-767.webp" },
+  { id: 79, name: "محمد الشريم", nameEn: "Mohammed Al-Sharim", degree: "استشاري", degreeEn: "Consultant", specialty: "جراحة مخ وأعصاب", specialtyEn: "Neurosurgery", hospital: "مستشفى المواساة", hospitalEn: "Al-Mawasah Hospital", hospitalType: "خاص", region: "الشرقية" , hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/rpW6kYj6/d3256e03-ec41-48db-b523-f76690b3f334-767.webp"},
+  { id: 80, name: "ماجد محمد العبدلي", nameEn: "Majed Mohammed Al-Abdali", degree: "استشاري", degreeEn: "Consultant", specialty: "جراحة مخ وأعصاب", specialtyEn: "Neurosurgery", hospital: "مستشفى المواساة", hospitalEn: "Al-Mawasah Hospital", hospitalType: "خاص", region: "الشرقية", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/rpW6kYj6/d3256e03-ec41-48db-b523-f76690b3f334-767.webp" },
+  { id: 81, name: "شهيد السحيباني", nameEn: "Shaheed Al-Suhaibani", degree: "استشاري", degreeEn: "Consultant", specialty: "مسالك بولية", specialtyEn: "Urology", hospital: "مستشفى المواساة", hospitalEn: "Al-Mawasah Hospital", hospitalType: "خاص", region: "الشرقية" , hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/rpW6kYj6/d3256e03-ec41-48db-b523-f76690b3f334-767.webp"},
+  { id: 82, name: "عادل فرحات", nameEn: "Adel Farhat", degree: "استشاري", degreeEn: "Consultant", specialty: "مسالك بولية", specialtyEn: "Urology", hospital: "مستشفى المواساة", hospitalEn: "Al-Mawasah Hospital", hospitalType: "خاص", region: "الشرقية", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/rpW6kYj6/d3256e03-ec41-48db-b523-f76690b3f334-767.webp" },
+  { id: 83, name: "بخيت المطر", nameEn: "Bakhit Al-Matar", degree: "استشاري", degreeEn: "Consultant", specialty: "مسالك بولية", specialtyEn: "Urology", hospital: "مستشفى المواساة", hospitalEn: "Al-Mawasah Hospital", hospitalType: "خاص", region: "الشرقية" , hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/rpW6kYj6/d3256e03-ec41-48db-b523-f76690b3f334-767.webp"},
+  { id: 84, name: "عصام النحراوي", nameEn: "Essam Al-Nahrawi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الروضة العام", hospitalEn: "Al-Rawdah General Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 85, name: "كمال علي الدحيوي", nameEn: "Kamal Ali Al-Dahwi", degree: "دكتوراه", degreeEn: "PhD", specialty: "جراحة مخ وأعصاب", specialtyEn: "Neurosurgery", hospital: "مستشفى الروضة العام", hospitalEn: "Al-Rawdah General Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 86, name: "محمود غباشي", nameEn: "Mahmoud Ghabashi", degree: "استشاري", degreeEn: "Consultant", specialty: "أنف وأذن وحنجرة", specialtyEn: "ENT", hospital: "مستشفى الروضة العام", hospitalEn: "Al-Rawdah General Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 87, name: "أيوب حسين", nameEn: "Ayoub Hussein", degree: "طبيب", degreeEn: "General Practitioner", specialty: "أنف وأذن وحنجرة", specialtyEn: "ENT", hospital: "مستشفى الروضة العام", hospitalEn: "Al-Rawdah General Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 88, name: "وجدي حبتور", nameEn: "Wajdi Habtour", degree: "أخصائي أول", degreeEn: "Senior Specialist", specialty: "أنف وأذن وحنجرة", specialtyEn: "ENT", hospital: "مستشفى الروضة العام", hospitalEn: "Al-Rawdah General Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 89, name: "فهد حامد", nameEn: "Fahd Hamed", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب أسنان", specialtyEn: "Dentistry", hospital: "مستشفى الروضة العام", hospitalEn: "Al-Rawdah General Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 90, name: "محمد الديسي", nameEn: "Mohammed Al-Disi", degree: "طبيب", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستشفى الروضة العام", hospitalEn: "Al-Rawdah General Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 91, name: "رشا إبراهيم سلامة", nameEn: "Rasha Ibrahim Salama", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (جهاز هضمي)", specialtyEn: "Internal Medicine (Gastroenterology)", hospital: "مستشفى تداوي العام", hospitalEn: "Tadawi General Hospital", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "", hospitalLic: "" },
+  { id: 92, name: "محمد السيد محمد درويش", nameEn: "Mohammed El-Sayed Mohammed Darwish", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى تداوي العام", hospitalEn: "Tadawi General Hospital", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "", hospitalLic: "" },
+  { id: 93, name: "طارق محمد مختار", nameEn: "Tariq Mohammed Mokhtar", degree: "أخصائي", degreeEn: "Specialist", specialty: "جراحة مخ وأعصاب", specialtyEn: "Neurosurgery", hospital: "مستشفى تداوي العام", hospitalEn: "Tadawi General Hospital", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "", hospitalLic: "" },
+  { id: 94, name: "خالد الناصر", nameEn: "Khalid Al-Nasser", degree: "استشاري", degreeEn: "Consultant", specialty: "مسالك بولية", specialtyEn: "Urology", hospital: "مستشفى تداوي العام", hospitalEn: "Tadawi General Hospital", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "", hospitalLic: "" },
+  { id: 95, name: "سحر محمد كامل اللقاني", nameEn: "Sahar Mohammed Kamel Al-Loqani", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستشفى تداوي العام", hospitalEn: "Tadawi General Hospital", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "", hospitalLic: "" },
+  { id: 96, name: "محمد النادي", nameEn: "Mohammed Al-Nadi", degree: "طبيب", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستشفى تداوي العام", hospitalEn: "Tadawi General Hospital", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "", hospitalLic: "" },
+  { id: 97, name: "رائد محمد علي السليمان", nameEn: "Raed Mohammed Ali Al-Sulaiman", degree: "أستاذ مساعد", degreeEn: "Assistant Professor", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فهد الجامعي", hospitalEn: "King Fahad University Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 98, name: "منال أحمد عبد الرحمن حسن", nameEn: "Manal Ahmed Abdulrahman Hassan", degree: "أستاذ مساعد", degreeEn: "Assistant Professor", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فهد الجامعي", hospitalEn: "King Fahad University Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 99, name: "محمد عتيق جمعة المنصوري", nameEn: "Mohammed Ateeq Juma Al-Mansouri", degree: "أستاذ مساعد", degreeEn: "Assistant Professor", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فهد الجامعي", hospitalEn: "King Fahad University Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 100, name: "عبدالله فهد عبدالعزيز الملحم", nameEn: "Abdullah Fahad Abdulaziz Al-Mulhim", degree: "أستاذ مساعد", degreeEn: "Assistant Professor", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فهد الجامعي", hospitalEn: "King Fahad University Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 101, name: "مؤيد محمد الشخل", nameEn: "Muayyad Mohammed Al-Shakhl", degree: "طبيب", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى القطيف المركزي", hospitalEn: "Qatif Central Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 102, name: "فاضل آل موسى", nameEn: "Fadel Al Musa", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية (جهاز هضمي)", specialtyEn: "Internal Medicine (Gastroenterology)", hospital: "مستشفى القطيف المركزي", hospitalEn: "Qatif Central Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 103, name: "تامر أبو السادات", nameEn: "Tamer Abu Al-Saadat", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية (جهاز هضمي)", specialtyEn: "Internal Medicine (Gastroenterology)", hospital: "مستشفى القطيف المركزي", hospitalEn: "Qatif Central Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 104, name: "أمل الصناع", nameEn: "Amal Al-Sanaa", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "أنف وأذن وحنجرة", specialtyEn: "ENT", hospital: "مستشفى القطيف المركزي", hospitalEn: "Qatif Central Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 105, name: "عبدالله علي الخنين", nameEn: "Abdullah Ali Al-Khunayn", degree: "أخصائي", degreeEn: "Specialist", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مستشفى قوى الأمن بالدمام", hospitalEn: "Security Forces Hospital Dammam", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 106, name: "عبدالرقيب", nameEn: "Abdul Raqeeb", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى حفر الباطن المركزي", hospitalEn: "Hafr Al-Batin Central Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 107, name: "هند محمد علي عثمان الشايف", nameEn: "Hind Mohammed Ali Othman Al-Shayef", degree: "نائب", degreeEn: "Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى حفر الباطن المركزي", hospitalEn: "Hafr Al-Batin Central Hospital", hospitalType: "حكومي", region: "الشرقية" },
+  { id: 108, name: "عبدالرحمن الشهري", nameEn: "Abdulrahman Al-Shahri", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (أورام)", specialtyEn: "Internal Medicine (Oncology)", hospital: "المستشفى السعودي الألماني - عسير", hospitalEn: "Saudi German Hospital - Asir", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/vmJWzy73/1781364583181.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3ULJBWW6-0708240</span>" },
+  { id: 109, name: "سيف عبود محمد القحطاني", nameEn: "Saif Abboud Mohammed Al-Qahtani", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (غدد صماء)", specialtyEn: "Internal Medicine (Endocrinology)", hospital: "المستشفى السعودي الألماني - عسير", hospitalEn: "Saudi German Hospital - Asir", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/vmJWzy73/1781364583181.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3ULJBWW6-0708240</span>" },
+  { id: 110, name: "إبراهيم طوهري", nameEn: "Ibrahim Tohari", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (كلى)", specialtyEn: "Internal Medicine (Nephrology)", hospital: "المستشفى السعودي الألماني - عسير", hospitalEn: "Saudi German Hospital - Asir", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/vmJWzy73/1781364583181.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3ULJBWW6-0708240</span>" },
+  { id: 111, name: "وليد عبدالمحسن شهاب الدين", nameEn: "Waleed Abdulmohsen Shihab Al-Din", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (غدد صماء)", specialtyEn: "Internal Medicine (Endocrinology)", hospital: "المستشفى السعودي الألماني - عسير", hospitalEn: "Saudi German Hospital - Asir", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/vmJWzy73/1781364583181.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3ULJBWW6-0708240</span>" },
+  { id: 112, name: "بندر الغامدي", nameEn: "Bandar Al-Ghamdi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (قلب)", specialtyEn: "Internal Medicine (Cardiology)", hospital: "المستشفى السعودي الألماني - عسير", hospitalEn: "Saudi German Hospital - Asir", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/vmJWzy73/1781364583181.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3ULJBWW6-0708240</span>" },
+  { id: 113, name: "عبدالكريم فهد آل باحص", nameEn: "Abdulkarim Fahd Al Bahis", degree: "استشاري", degreeEn: "Consultant", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "المستشفى السعودي الألماني - عسير", hospitalEn: "Saudi German Hospital - Asir", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/vmJWzy73/1781364583181.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3ULJBWW6-0708240</span>" },
+  { id: 114, name: "هند فوزي محمود أحمد", nameEn: "Hind Fawzi Mahmoud Ahmed", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (شيخوخة)", specialtyEn: "Internal Medicine (Geriatrics)", hospital: "المستشفى السعودي الألماني - عسير", hospitalEn: "Saudi German Hospital - Asir", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/vmJWzy73/1781364583181.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3ULJBWW6-0708240</span>"},
+  { id: 115, name: "علي بن محمد الشهراني", nameEn: "Ali bin Mohammed Al-Shahrani", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك عبدالله", hospitalEn: "King Abdullah Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 116, name: "ناصر عبدالله القرني", nameEn: "Naser Abdullah Al-Qarni", degree: "أخصائي أول", degreeEn: "Senior Specialist", specialty: "باطنية (جهاز هضمي)", specialtyEn: "Internal Medicine (Gastroenterology)", hospital: "مستشفى الملك عبدالله", hospitalEn: "King Abdullah Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 117, name: "محمد حسن عسيري", nameEn: "Mohammed Hassan Asiri", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (قلب)", specialtyEn: "Internal Medicine (Cardiology)", hospital: "مستشفى الملك عبدالله", hospitalEn: "King Abdullah Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 118, name: "فهد سعد القحطاني", nameEn: "Fahd Saad Al-Qahtani", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الملك عبدالله", hospitalEn: "King Abdullah Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 119, name: "سامي إبراهيم العمري", nameEn: "Sami Ibrahim Al-Omari", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الملك عبدالله", hospitalEn: "King Abdullah Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 120, name: "عائشة محمد الشهري", nameEn: "Aisha Mohammed Al-Shahri", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "طب أسرة", specialtyEn: "Family Medicine", hospital: "مستشفى الملك عبدالله", hospitalEn: "King Abdullah Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 121, name: "أحمد يحيى العمري", nameEn: "Ahmed Yahya Al-Omari", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية (صدرية)", specialtyEn: "Internal Medicine (Pulmonology)", hospital: "مستشفى الملك عبدالله", hospitalEn: "King Abdullah Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 122, name: "خالد علي القحطاني", nameEn: "Khalid Ali Al-Qahtani", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (غدد صماء)", specialtyEn: "Internal Medicine (Endocrinology)", hospital: "مستشفى الملك عبدالله", hospitalEn: "King Abdullah Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 123, name: "حسين حجلان", nameEn: "Hussein Hajlan", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها التخصصي", hospitalEn: "Abha Specialized Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 124, name: "محمد شهيب", nameEn: "Mohammed Shuhaib", degree: "طبيب", degreeEn: "General Practitioner", specialty: "جراحة مخ وأعصاب", specialtyEn: "Neurosurgery", hospital: "مستشفى أبها التخصصي", hospitalEn: "Abha Specialized Hospital", hospitalType: "حكومي", region: "عسير" },
+  { id: 125, name: "عمر أحمد الزهراني", nameEn: "Omar Ahmed Al-Zahrani", degree: "أخصائي", degreeEn: "Specialist", specialty: "جراحة مخ وأعصاب", specialtyEn: "Neurosurgery", hospital: "مستشفى الملك فهد", hospitalEn: "King Fahad Hospital", hospitalType: "حكومي", region: "المدينة المنورة" },
+  { id: 126, name: "ليلى حسين العمري", nameEn: "Layla Hussein Al-Omari", degree: "طبيبة", degreeEn: "General Practitioner", specialty: "مسالك بولية", specialtyEn: "Urology", hospital: "مستشفى الملك فهد", hospitalEn: "King Fahad Hospital", hospitalType: "حكومي", region: "المدينة المنورة" },
+  { id: 127, name: "محمد فوزي", nameEn: "Mohammed Fawzi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (صدرية)", specialtyEn: "Internal Medicine (Pulmonology)", hospital: "مستشفى الأحمدي", hospitalEn: "Al-Ahmadi Hospital", hospitalType: "خاص", region: "المدينة المنورة" },
+  { id: 128, name: "شريف منصور", nameEn: "Sherif Mansour", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية (قلب)", specialtyEn: "Internal Medicine (Cardiology)", hospital: "مستشفى الزهراء", hospitalEn: "Al-Zahra Hospital", hospitalType: "خاص", region: "المدينة المنورة" },
+  { id: 129, name: "سليمان برهوم", nameEn: "Sulaiman Barhoum", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستوصف الحمد", hospitalEn: "Al-Hamd Clinic", hospitalType: "خاص", region: "الجوف" },
+  { id: 130, name: "ثاني", nameEn: "Thani", degree: "طبيب", degreeEn: "General Practitioner", specialty: "أسنان عام", specialtyEn: "General Dentistry", hospital: "مستوصف الحمد", hospitalEn: "Al-Hamd Clinic", hospitalType: "خاص", region: "الجوف" },
+  { id: 131, name: "محمد يعقوب", nameEn: "Mohammed Yaqoub", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستوصف الحمد", hospitalEn: "Al-Hamd Clinic", hospitalType: "خاص", region: "الجوف" },
+  // ==================== الجوف - مجمع بدر الطبي ====================
+{ id: 132, name: "كريم رزق أحمد", nameEn: "Karim Rizq Ahmed", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنة (جهاز هضمي)", specialtyEn: "Internal Medicine (Gastroenterology)", hospital: "مجمع بدر الطبي", hospitalEn: "Badr Medical Complex", hospitalType: "خاص", region: "الجوف", hospitalLogo: "https://i.postimg.cc/L6sbp6bM/logo-1x1.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>100638</span>" },
+{ id: 133, name: "تامر فورزى منصور", nameEn: "Tamer Fawzy Mansour", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع بدر الطبي", hospitalEn: "Badr Medical Complex", hospitalType: "خاص", region: "الجوف", hospitalLogo: "https://i.postimg.cc/L6sbp6bM/logo-1x1.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>100638</span>" },
+{ id: 134, name: "أحمد جمال مصطفى بركات", nameEn: "Ahmed Gamal Mustafa Barakat", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع بدر الطبي", hospitalEn: "Badr Medical Complex", hospitalType: "خاص", region: "الجوف", hospitalLogo: "https://i.postimg.cc/L6sbp6bM/logo-1x1.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>100638</span>" },
+{ id: 135, name: "تقوى محمد سعيد كاظم", nameEn: "Taqwa Mohammed Saeed Kadhim", degree: "طبيبة عامة", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع بدر الطبي", hospitalEn: "Badr Medical Complex", hospitalType: "خاص", region: "الجوف", hospitalLogo: "https://i.postimg.cc/L6sbp6bM/logo-1x1.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>100638</span>" },
+{ id: 136, name: "فواز علي سنان", nameEn: "Fawaz Ali Sinan", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع بدر الطبي", hospitalEn: "Badr Medical Complex", hospitalType: "خاص", region: "الجوف", hospitalLogo: "https://i.postimg.cc/L6sbp6bM/logo-1x1.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>100638</span>" },
+  { id: 137, name: "أديب الغالييني", nameEn: "Adeb Al-Ghalyini", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى تيماء العام", hospitalEn: "Taima General Hospital", hospitalType: "حكومي", region: "تبوك" },
+  { id: 138, name: "زياد البشيري", nameEn: "Ziyad Al-Bishri", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك خالد", hospitalEn: "King Khalid Hospital", hospitalType: "حكومي", region: "تبوك" },
+  { id: 139, name: "حافظ ملحان", nameEn: "Hafez Milhan", degree: "طبيب", degreeEn: "General Practitioner", specialty: "أمراض الدم", specialtyEn: "Hematology", hospital: "مستشفى الملك فهد المركزي", hospitalEn: "King Fahad Central Hospital", hospitalType: "حكومي", region: "جازان" },
+  { id: 140, name: "نبيل قاسم ثابت مثنی", nameEn: "Nabil Qasim Thabet Muthanna", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى جازان العام", hospitalEn: "Jazan General Hospital", hospitalType: "حكومي", region: "جازان" },
+  { id: 141, name: "محمد مدخلى", nameEn: "Mohammed Madkhali", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الحياة الوطني", hospitalEn: "Al-Hayat National Hospital", hospitalType: "خاص", region: "جازان" },
+  { id: 142, name: "أحمد سليمان الجباري", nameEn: "Ahmed Suleiman Al-Jabari", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك سلمان التخصصي", hospitalEn: "King Salman Specialist Hospital", hospitalType: "حكومي", region: "حائل" },
+  { id: 143, name: "محمد بلال", nameEn: "Mohammed Bilal", degree: "أخصائي أول", degreeEn: "Senior Specialist", specialty: "باطنة", specialtyEn: "Internal Medicine", hospital: "مجمع القصيم التخصصي الطبي", hospitalEn: "Qassim Specialized Medical Complex", hospitalType: "خاص", region: "القصيم" },
+  { id: 144, name: "محمد مدثر", nameEn: "Mohammed Mudathir", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع القصيم التخصصي الطبي", hospitalEn: "Qassim Specialized Medical Complex", hospitalType: "خاص", region: "القصيم" },
+  { id: 145, name: "فرح صالح بطاح الدعيجي", nameEn: "Farah Saleh Battah Al Duaiji", degree: "عام", degreeEn: "General", specialty: "طبيب أسنان", specialtyEn: "ENT", hospital: "مركز صحي عودة", hospitalEn: "Awda Health Center ", hospitalType: "حكومي", region: "الرياض" },
+  { id: 146, name: "أحمد يحيى على ال فرحان", nameEn: "Ahmed Yahya Ali Al Farhan", degree: "عام", degreeEn: "General", specialty: "طبيب عام", specialtyEn: "General", hospital: "مستشفى براك العام", hospitalEn: "Brak General Hospital ", hospitalType: "خاص", region: "بيشة" },
+  { id: 147, name: "أحمد محمد شلبى شلبى", nameEn: "Ahmed Mohamed Shalaby Shalaby ", degree: "عام", degreeEn: "General", specialty: "طبيب عام", specialtyEn: "General", hospital: "مجمع واستي الطبي", hospitalEn: "WASNI ", hospitalType: "خاص", region: "حميس المشيط , ابها , المملكه العربيه السعوديه" },
+  { id: 148, name: "محمد عبد الله محمد شعت", nameEn: "MOHAMED ABDALLA MOHAMED SHAAT ", degree: "عام", degreeEn: "General", specialty: " طبيب عام", specialtyEn: "General", hospital: "مجمع تداوي الطبي", hospitalEn: "tadawi medical complex ", hospitalType: "خاص", region: "حميس المشيط , ابها , المملكه العربيه السعوديه" },
+  { id: 149, name: "محمد الشمري", nameEn: "MUHAMMAD AL SHAMMARI ", degree: "عام", degreeEn: "General", specialty: " طبيب عام", specialtyEn: "General", hospital: "مرکز صحی شوران", hospitalEn: "Shoran Health Center ", hospitalType: "حكومي", region: "المدينة المنورة" },
+     { id: 150, name: "رانيا سليم", nameEn: "Rania Selim  ", degree: "", degreeEn: "General", specialty: "استشاري", specialtyEn: "Consultant", hospital: "مستشفى القريات العام", hospitalEn: "Al Qurayyat General Hospital  ", hospitalType: "حكومي", region: "الجوف" },
+     
+    // منطقة الرياض
+    { id: 151, name: "هاني العمودي", nameEn: "Hani Al-Amoudi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فيصل التخصصي", hospitalEn: "King Faisal Specialist Hospital", hospitalType: "حكومي", region: "الرياض" },
+    { id: 152, name: "خالد القحطاني", nameEn: "Khaled Al-Qahtani", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع عيادات الحبيب", hospitalEn: "Al Habib Medical Group", hospitalType: "خاص", region: "الرياض" },
+    { id: 153, name: "فهد الشهري", nameEn: "Fahad Al-Shehri", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مدينة الملك عبدالعزيز الطبية", hospitalEn: "King Abdulaziz Medical City", hospitalType: "حكومي", region: "الرياض" },
+    { id: 154, name: "عبدالعزيز بن معمر", nameEn: "Abdulaziz Bin Moammar", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى دلة", hospitalEn: "Dallah Hospital", hospitalType: "خاص", region: "الرياض" ,hospitalLogo: "https://i.postimg.cc/wBQmzv9d/Smart-Select-20260604-001226-Canva.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1010132622</span>"},
+
+    // منطقة مكة المكرمة (جدة)
+    { id: 155, name: "نسرين باخشب", nameEn: "Nisreen Bakhashab", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فهد للقوات المسلحة", hospitalEn: "King Fahad Armed Forces Hospital", hospitalType: "حكومي", region: "جدة" },
+    { id: 156, name: "محمد الغامدي", nameEn: "Mohammed Al-Ghamdi", degree: "نائب", degreeEn: "Resident", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى جدة الوطني", hospitalEn: "Jeddah National Hospital", hospitalType: "خاص", region: "جدة" },
+    { id: 157, name: "عاصم الشريف", nameEn: "Asim Al-Sharif", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فيصل التخصصي", hospitalEn: "King Faisal Specialist Hospital", hospitalType: "حكومي", region: "جدة" },
+    { id: 158, name: "فيصل الزهراني", nameEn: "Faisal Al-Zahrani", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى المركز الطبي الدولي", hospitalEn: "International Medical Center", hospitalType: "خاص", region: "جدة" },
+
+    // المنطقة الشرقية
+    { id: 333, name: "مها الملا", nameEn: "Maha Al-Mulla", degree: "استشاري", degreeEn: "Consultant", specialty: "طب الأسرة", specialtyEn: "Family Medicine", hospital: "مركز الرعاية الصحية الأولية", hospitalEn: "Primary Healthcare Center", hospitalType: "حكومي", region: "المنطقة الشرقية", hospitalLogo: "", hospitalLic: "ترخيص رقم: <span class='date-fix'>1400001002</span>" },
+    { id: 334, name: "نورة الحمادي", nameEn: "Noura Al-Hammadi", degree: "طبيب عائلة", degreeEn: "Family Doctor", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مركز الرعاية الصحية الأولية", hospitalEn: "Primary Healthcare Center", hospitalType: "حكومي", region: "المنطقة الشرقية", hospitalLogo: "", hospitalLic: "ترخيص رقم: <span class='date-fix'>1400001002</span>" },
+    { id: 159, name: "فهد السبيعي", nameEn: "Fahad Al Subaie", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فهد الجامعي", hospitalEn: "King Fahd University Hospital", hospitalType: "حكومي", region: "الخبر" },
+    { id: 160, name: "سارة الدوسري", nameEn: "Sarah Al Dossary", degree: "طبيب", degreeEn: "General ", specialty: "عام", specialtyEn: "", hospital: "مستشفى المانع العام", hospitalEn: "ALMANA GENEREL HOSPITALS ALJUBAIL", hospitalType: "خاص", region: "الدمام", hospitalLogo: "https://i.postimg.cc/hv9kmgXM/1780580073146.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3811101001200077</span>"  },
+    { id: 161, name: "عبدالله الجعفري", nameEn: "Abdullah Al Jafari", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى جونز هوبكنز أرامكو", hospitalEn: "Johns Hopkins Aramco Healthcare", hospitalType: "خاص", region: "الظهران" },
+
+    // منطقة المدينة المنورة
+    { id: 162, name: "ياسر المحمدي", nameEn: "Yasser Al Mohammadi", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فهد", hospitalEn: "King Fahad Hospital", hospitalType: "حكومي", region: "المدينة المنورة" },
+    { id: 163, name: "وليد الحجيلي", nameEn: "Waleed Al Hejaili", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى المدينة الطبي", hospitalEn: "Madinah Medical Hospital", hospitalType: "خاص", region: "المدينة المنورة" },
+
+    // منطقة القصيم
+    { id: 164, name: "يوسف الرشيدي", nameEn: "Yousef Al Rashidi", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الملك فهد التخصصي", hospitalEn: "King Fahad Specialist Hospital", hospitalType: "حكومي", region: "بريدة" },
+    { id: 165, name: "صالح التويجري", nameEn: "Saleh AlوTuwaijri", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى بريدة المركزي", hospitalEn: "Buraidah Central Hospital", hospitalType: "حكومي", region: "بريدة" },
+
+    // منطقة عسير
+    { id: 166, name: "سعيد الأحمري", nameEn: "Saeed Al Ahmeri", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى عسير المركزي", hospitalEn: "Asir Central Hospital", hospitalType: "حكومي", region: "أبها" },
+
+    // منطقة تبوك
+    { id: 168, name: "ماجد البلوي", nameEn: "Majed Al Balawi", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فهد التخصصي", hospitalEn: "King Fahad Specialist Hospital", hospitalType: "حكومي", region: "تبوك" },
+    { id: 169, name: "سلطان العطوي", nameEn: "Sultan Al Atwi", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى تبوك العام", hospitalEn: "Tabuk General Hospital", hospitalType: "حكومي", region: "تبوك" },
+
+    // منطقة عسير - حكومي
+    { id: 170, name: "سعيد الأحمري", nameEn: "Saeed Al Ahmeri", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى عسير المركزي", hospitalEn: "Asir Central Hospital", hospitalType: "حكومي", region: "عسير" },
+    { id: 171, name: "محمد آل فايع", nameEn: "Mohammed Al Faya", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى محايل العام", hospitalEn: "Muhayil General Hospital", hospitalType: "حكومي", region: "عسير" },
+    { id: 172, name: "عبدالله الشهراني", nameEn: "Abdullah Al Shahrani", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى خميس مشيط العام", hospitalEn: "Khamis Mushait General Hospital", hospitalType: "حكومي", region: "عسير" },
+
+    // منطقة عسير - خاص
+    { id: 173, name: "علي القحطاني", nameEn: "Ali Al Qahtani", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "المستشفى السعودي الألماني", hospitalEn: "Saudi German Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/vmJWzy73/1781364583181.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3ULJBWW6-0708240</span>" },
+    // ==================== منطقة عسير - مستشفى أبها الخاص ====================
+{ id: 282, name: "طارق الأزرقي", nameEn: "Tareq Al-Azraqi", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 283, name: "عبد الحميد الوابل", nameEn: "Abdul Hamid Al-Wabil", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 284, name: "عرفات عبد العظيم", nameEn: "Arafat Abdel Azeem", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 285, name: "إبراهيم عبدالوهاب", nameEn: "Ibrahim Abdul Wahab", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 286, name: "سليمان حميد", nameEn: "Sulaiman Humaid", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 287, name: "خالد الصيادي", nameEn: "Khalid Al-Sayadi", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 288, name: "طلعت الليثي", nameEn: "Talaat Al-Leithi", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 289, name: "خالد النبراوي", nameEn: "Khalid Al-Nabarawy", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 290, name: "مشبب القحطاني", nameEn: "Mushabbab Al-Qahtani", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 291, name: "عبد العزيز هيجان", nameEn: "Abdul Aziz Hijan", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 292, name: "أحمد عودة", nameEn: "Ahmed Oudah", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى أبها الخاص", hospitalEn: "Abha Private Hospital", hospitalType: "خاص", region: "عسير", hospitalLogo: "https://i.postimg.cc/gJ8BYjS8/1781547745366.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+
+    // منطقة الجوف - حكومي
+    { id: 175, name: "بندر الرويلي", nameEn: "Bandar Al-Ruwaili", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك عبدالعزيز التخصصي", hospitalEn: "King Abdulaziz Specialist Hospital", hospitalType: "حكومي", region: "الجوف" },
+    { id: 176, name: "فيصل الشمري", nameEn: "Faisal Al Shammary", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الأمير متعب بن عبدالعزيز", hospitalEn: "Prince Mutaib Bin Abdulaziz Hospital", hospitalType: "حكومي", region: "الجوف" },
+    { id: 177, name: "خالد العنزي", nameEn: "Khaled Al Anazi", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى طبرجل العام", hospitalEn: "Tabarjal General Hospital", hospitalType: "حكومي", region: "الجوف" },
+
+    // منطقة الجوف - خاص
+    { id: 178, name: "تركي السرحاني", nameEn: "Turki Al Sarhani", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى عناية العائلة", hospitalEn: "Family Care Hospital", hospitalType: "خاص", region: "الجوف" },
+    { id: 179, name: "سلطان الملحم", nameEn: "Sultan Al Mulhim", degree: "نائب", degreeEn: "Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع صحي سكاكا", hospitalEn: "Sakaka Health Complex", hospitalType: "خاص", region: "الجوف" },
+
+    // منطقة بيشة - حكومي وخاص
+    { id: 180, name: "سعد الشهراني", nameEn: "Saad Al Shahrani", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك عبدالله", hospitalEn: "King Abdullah Hospital", hospitalType: "حكومي", region: "بيشة" },
+    { id: 181, name: "محمد المعاوي", nameEn: "Mohammed Al Maawi", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى بيشة العام", hospitalEn: "Bisha General Hospital", hospitalType: "حكومي", region: "بيشة" },
+    { id: 182, name: "عبدالله الغامدي", nameEn: "Abdullah Al Ghamdi", degree: "نائب", degreeEn: "Resident", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الهلال الأخضر", hospitalEn: "Green Crescent Hospital", hospitalType: "خاص", region: "بيشة" },
+
+    // منطقة القصيم (بريدة وعنيزة) - حكومي وخاص
+    { id: 183, name: "يوسف الرشيدي", nameEn: "Yousef Al-Rashidi", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الملك فهد التخصصي", hospitalEn: "King Fahad Specialist Hospital", hospitalType: "حكومي", region: "القصيم" },
+    { id: 184, name: "صالح التويجري", nameEn: "Saleh Al Tuwaijri", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى بريدة المركزي", hospitalEn: "Buraidah Central Hospital", hospitalType: "حكومي", region: "القصيم" },
+    { id: 185, name: "أحمد الحربي", nameEn: "Ahmed Al Harbi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك سعود", hospitalEn: "King Saud Hospital", hospitalType: "حكومي", region: "القصيم" },
+    { id: 186, name: "سليمان العوف", nameEn: "Sulaiman Al Ouf", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى القصيم الوطني", hospitalEn: "Qassim National Hospital", hospitalType: "خاص", region: "القصيم" },
+
+    // منطقة حائل - حكومي وخاص
+    { id: 187, name: "نايف الشمري", nameEn: "Naif Al Shammary", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك خالد", hospitalEn: "King Khalid Hospital", hospitalType: "حكومي", region: "حائل" },
+    { id: 188, name: "فهد الرشيدي", nameEn: "Fahad Al Rashidi", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى حائل العام", hospitalEn: "Hail General Hospital", hospitalType: "حكومي", region: "حائل" },
+    { id: 189, name: "خالد السويدي", nameEn: "Khaled Al Suwaidi", degree: "طبيب", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الراشد", hospitalEn: "Al-Rashid Hospital", hospitalType: "خاص", region: "حائل", hospitalLogo: "https://i.postimg.cc/yxZZyyJY/1781285239954.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3819 24222</span>"  },
+
+    // منطقة مكة المكرمة - حكومي وخاص
+    { id: 332, name: "إجلال فيصل", nameEn: "Ejlal Faisal", degree: "دكتورة", degreeEn: "Doctor", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مركز الرعاية الصحية الأولية", hospitalEn: "Primary Healthcare Center", hospitalType: "حكومي", region: "مكة المكرمة", hospitalLogo: "", hospitalLic: "ترخيص رقم: <span class='date-fix'>1400001001</span>" },
+    { id: 190, name: "تركي الهذلي", nameEn: "Turki Al Huthali", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك فيصل", hospitalEn: "King Faisal Hospital", hospitalType: "حكومي", region: "مكة المكرمة" },
+    { id: 191, name: "عمر اللحياني", nameEn: "Omar Al Lahyani", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى حراء العام", hospitalEn: "Hira General Hospital", hospitalType: "حكومي", region: "مكة المكرمة" },
+    { id: 192, name: "سلطان القرشي", nameEn: "Sultan Al Qurashi", degree: "طبيب", degreeEn: "General Practitioner", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى النور التخصصي", hospitalEn: "Al-Noor Specialist Hospital", hospitalType: "حكومي", region: "مكة المكرمة" },
+    { id: 193, name: "سالم باوزير", nameEn: "Salem Ba-Wazir", degree: "نائب", degreeEn: "Resident", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى علوي تونسي", hospitalEn: "Alawi Tunsi Hospital", hospitalType: "خاص", region: "مكة المكرمة" },
+      { id: 194, name: "خالد العنزي", nameEn: "Khaled Al-Anazi", degree: "نائب أول", degreeEn: "Senior Resident", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى طبرجل العام", hospitalEn: "Tabarjal General Hospital", hospitalType: "حكومي", region: "الجوف" },
+      { id: 195, name: "فواز الرويلي", nameEn: "Fawaz Al-Ruwaili", degree: "طبيب", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى طبرجل العام", hospitalEn: "Tabarjal General Hospital", hospitalType: "حكومي", region: "الجوف" },
+     { id: 196, name: "بندر الرويلي", nameEn: "Bandar Al-Ruwaili", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الملك عبدالعزيز التخصصي", hospitalEn: "King Abdulaziz Specialist Hospital", hospitalType: "حكومي", region: "الجوف" },
+     // ==================== منطقة الجوف - سكاكا ====================
+{ id: 197, name: "هيلاري أوجيو", nameEn: "Hillary Ugwu", degree: "طبيب مقيم", degreeEn: "Resident Physician", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الأمير متعب بن عبدالعزيز", hospitalEn: "Prince Mutab Bin Abdulaziz Hospital", hospitalType: "حكومي", region: "الجوف" },
+{ id: 198, name: "نوف ناشمي م العنزي", nameEn: "Nouf Nashmi M Alazmi", degree: "طبيبة", degreeEn: "Physician", specialty: "الأشعة التشخيصية", specialtyEn: "Diagnostic Radiology", hospital: "مستشفى الأمير متعب بن عبدالعزيز", hospitalEn: "Prince Mutab Bin Abdulaziz Hospital", hospitalType: "حكومي", region: "الجوف" },
+{ id: 199, name: "عبدالله البطحي", nameEn: "ABDULLAH AL BATHAI", degree: "طبيب", degreeEn: "doctor ", specialty: "عام", specialtyEn: "General", hospital: "مستشفى ساجر العام", hospitalEn: "Sager General Hospital", hospitalType: "حكومي", region: "الرياض" },
+{ id: 200, name: "هادي عبدالعزيز", nameEn: "Hadi AbdulazizI", degree: "طبيب", degreeEn: "doctor ", specialty: "عام", specialtyEn: "General", hospital: "مستشفى بدر الربيع", hospitalEn: "Badr Al Rabee Hospita", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/brVytYqs/bdr-alrbyʿ.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>1435</span> / م خ" },
+{ id: 201, name: "ناصر الجهني", nameEn: "Nasser Al-Juhani", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية ", specialtyEn: "Internal ", hospital: "مركز صحي السليمانية", hospitalEn: "Sulaymaniyah Health Center", hospitalType: "حكومي", region: "الرياض", hospitalLogo: "", hospitalLic: "" },
+// ==================== جدة - مجمع الملك عبدالله الطبي (أطباء باطنية مؤكدين) ====================
+{ id: 202, name: "فاطمة", nameEn: "Fatimah", degree: "طبيب", degreeEn: "Physician", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع الملك عبدالله الطبي", hospitalEn: "King Abdullah Medical Complex", hospitalType: "حكومي", region: "مكة" },
+{ id: 203, name: "منال النويصر", nameEn: "Manal Al Nuwayyir", degree: "طبيب", degreeEn: "Physician", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع الملك عبدالله الطبي", hospitalEn: "King Abdullah Medical Complex", hospitalType: "حكومي", region: "مكة" },
+{ id: 204, name: "قطان", nameEn: "Qattan", degree: "طبيب", degreeEn: "Physician", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع الملك عبدالله الطبي", hospitalEn: "King Abdullah Medical Complex", hospitalType: "حكومي", region: "مكة" },
+{ id: 205, name: "مشعل الغامدي", nameEn: "Meshal Alghamdi", degree: "طبيب", degreeEn: "Physician", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع الملك عبدالله الطبي", hospitalEn: "King Abdullah Medical Complex", hospitalType: "حكومي", region: "مكة" },
+{ id: 206, name: "عبدالعزيز محمد فليمبان", nameEn: "Abdulaziz Mohammed Filemban", degree: "أخصائي", degreeEn: "Specialist", specialty: "طب الأسرة", specialtyEn: "Family Medicine", hospital: "مجمع الملك عبدالله الطبي", hospitalEn: "King Abdullah Medical Complex", hospitalType: "حكومي", region: "مكة" },
+{ id: 207, name: "زينه محمد ضياء محمد خير السواح", nameEn: "ZAINAH MOHAMEDDIA M ALSAWAH", degree: "نائب اول", degreeEn: "First Deputy", specialty: "طب الأسرة", specialtyEn: "Family Medicine", hospital: "مجمع دار تالا الطبي", hospitalEn: "Dar Tala Medical Complex", hospitalType: "خاص", region: "الرياض",  hospitalLogo: "https://i.postimg.cc/xjmZHXfK/1779118672041.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>1400011896</span>"  },
+{ id: 208, name: "محمد حمدي علي الحداد", nameEn: "Mohamed Hamdy Ali Al-Haddad", degree: "طبيب", degreeEn: "General ", specialty: "عام", specialtyEn: " ", hospital: "مجمع المدلوح الطبي", hospitalEn: "Almadloul Medical Complex", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/wjqpVTNy/Smart-Select-20260519-001524-Photos.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810201201210006</span>"  },
+// ==================== ينبع - مجمع البحر الاحمر الطبي العام ====================
+{ id: 209, name: "محمد عبدالرحمن حسين", nameEn: "Mohamed Abdulrahman Hussein", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع البحر الاحمر الطبي العام", hospitalEn: "red sea general medical group", hospitalType: "خاص", region: "المدينة المنورة", hospitalLogo: "https://i.postimg.cc/V6fg3HjB/Smart-Select-20260519-174438-Drive.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>4810701201210007</span>" },
+{ id: 210, name: "وليد", nameEn: "Waleed", degree: "طبيب", degreeEn: "General ", specialty: "عام", specialtyEn: " Medicine", hospital: "مجمع البحر الاحمر الطبي العام", hospitalEn: "red sea general medical group", hospitalType: "خاص", region: "المدينة المنورة", hospitalLogo: "https://i.postimg.cc/V6fg3HjB/Smart-Select-20260519-174438-Drive.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>4810701201210007</span>" },
+{ id: 211, name: "شادي نعسان", nameEn: "Shadi Naasan ", degree: "طبيب", degreeEn: "General", specialty: "عام", specialtyEn: "", hospital: "مستشفى دومة الجندل العام", hospitalEn: "Domat Al Jandal General Hospital", hospitalType: "حكومي", region: "الجوف" },
+// ==================== جدة - مركز صحي حداء ====================
+{ id: 212, name: "محمد الجزار", nameEn: "Mohamed El Gazzar ", degree: "أخصائي", degreeEn: "Specialist ", specialty: "الطب الباطني ", specialtyEn: "Internal Medicine ", hospital: "مركز الرعاية الصحية الأولية بحداء", hospitalEn: "Hedaa Primary Healthcare Center", hospitalType: "حكومي", region: "مكة", hospitalLogo: "", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+// ==================== الرياض - مجمع نمار الطبي ====================
+{ id: 213, name: "علي القحطاني", nameEn: "Ali Al Qahtani", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "", hospital: "مركز مجمع نمار الطبي", hospitalEn: "Namar Medical Complex", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/8P56LNN6/1780517569156.png", hospitalLic: "" },
+{ id: 214, name: "داليا هاللى", nameEn: "Dalia Halli", degree: "أخصائي", degreeEn: "Specialist", specialty: "الباطنية", specialtyEn: "Internal Medicine ", hospital: "مركز مجمع نمار الطبي", hospitalEn: "Namar Medical Complex", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/8P56LNN6/1780517569156.png", hospitalLic: "" },
+// ==================== الدمام - مجمع الصحة والحياة الطبي ====================
+{ id: 215, name: "أحمد ياسين", nameEn: "Ahmed Yassin", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع الصحة والحياة الطبي بالدمام", hospitalEn: "Health and Life Polyclinic Dammam", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/mkGkg31T/Smart-Select-20260520-155544-Canva.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810301201210075</span>" },
+{ id: 216, name: "محمد حجار", nameEn: "Mohammed Hajjar", degree: "طبيب", degreeEn: "Physician", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع الصحة والحياة الطبي بالدمام", hospitalEn: "Health and Life Polyclinic Dammam", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/mkGkg31T/Smart-Select-20260520-155544-Canva.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810301201210075</span>" },
+{ id: 217, name: "إيمان علي", nameEn: "Eman Ali", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع الصحة والحياة الطبي بالدمام", hospitalEn: "Health and Life Polyclinic Dammam", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/mkGkg31T/Smart-Select-20260520-155544-Canva.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810301201210075</span>" },
+{ id: 218, name: "سميرة عبدالعزيز", nameEn: "Samira Abdulaziz", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع الصحة والحياة الطبي بالدمام", hospitalEn: "Health and Life Polyclinic Dammam", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/mkGkg31T/Smart-Select-20260520-155544-Canva.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810301201210075</span>" },
+// ==================== الدمام - مجمع الاحمدي الطبي ====================
+{ id: 219, name: "اغابي فادي يوسف باخوم", nameEn: "Aghapy Fady Youssef Bakhoum", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع الاحمدي الطبي بالدمام", hospitalEn: "Al Ahmadi Medical Complex", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/V6y4z61D/images-(1)-(12).jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>3800015834</span>" },
+// ==================== الخرج - مجمعات التعاون الطبية ====================
+// أطباء الطب العام
+{ id: 220, name: "محمد عاطف خان", nameEn: "Mohamed Atef Khan", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1400011896</span>"},
+{ id: 221, name: "نسرين ابراهيم المقدم", nameEn: "Nesrin Ibrahim Al-Moqaddam", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1400011896</span>" },
+{ id: 222, name: "محفوظ علي حافظ", nameEn: "Mahfouz Ali Hafez", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1400011896</span>"},
+{ id: 223, name: "ناهد حسونة", nameEn: "Nahed Hassouna", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1400011896</span>" },
+{ id: 224, name: "مجاهد زين العابدين", nameEn: "Mujahid Zain al-Abidin", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1400011896</span>" },
+{ id: 225, name: "احمد حسنين", nameEn: "Ahmed Hasanein", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1400011896</span>"},
+{ id: 226, name: "سعيد طلبه", nameEn: "Saeed Tolba", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1400011896</span>"},
+{ id: 227, name: "محمد حاتم", nameEn: "Mohamed Hatem", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1400011896</span>" },
+
+// أطباء الباطنية
+{ id: 228, name: "حاتم رمضان", nameEn: "Hatem Ramadan", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: {} },
+{ id: 229, name: "عبد العزيز الجريوي", nameEn: "Abdulaziz Al Juraiwy", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (روماتيزم)", specialtyEn: "Internal Medicine (Rheumatology)", hospital: "مجمعات التعاون الطبية", hospitalEn: "Al-Taawun Medical Complexes", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/pT6WmgGD/IMG-20260520-WA0009.jpg", hospitalLic: {} },
+// ==================== جدة - عيادات الفا للعناية الطبية (Alpha Health Care) ====================
+{ id: 230, name: "أنس يونس", nameEn: "Anas Younes", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "عيادات الفا للعناية الطبية", hospitalEn: "Alpha Health Care Clinics", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/xTNvdxJ6/1780147380460.png", hospitalLic: "" },
+{ id: 231, name: "محمد وليد السيد", nameEn: "Mohammed Waleed Alsayed", degree: "طبيب أسنان", degreeEn: "Dentist", specialty: "عام", specialtyEn: "General Medicine", hospital: "عيادات الفا للعناية الطبية", hospitalEn: "Alpha Health Care Clinics", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/CMffgZfD/Smart-Select-20260530-150936-Chrome-Beta.jpg", hospitalLic: "" },
+{ id: 232, name: "رياض ثايلا", nameEn: "Riyad Thayla", degree: "طبيب", degreeEn: "General ", specialty: "عام ", specialtyEn: " Medicine", hospital: "عيادات الفا للعناية الطبية", hospitalEn: "Alpha Health Care Clinics", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/CMffgZfD/Smart-Select-20260530-150936-Chrome-Beta.jpg", hospitalLic: "" },
+{ id: 233, name: "ايات عبدالرحيم", nameEn: "Ayat Abdulrahim", degree: "طبيب", degreeEn: "General ", specialty: "عام", specialtyEn: " Medicine", hospital: "عيادات الفا للعناية الطبية", hospitalEn: "Alpha Health Care Clinics", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/CMffgZfD/Smart-Select-20260530-150936-Chrome-Beta.jpg", hospitalLic: "" },
+{ id: 234, name: "الجين باعجاج", nameEn: "Al Jeen Ba'ajaj", degree: "طبيب", degreeEn: "General ", specialty: "عام", specialtyEn: " Medicine", hospital: "عيادات الفا للعناية الطبية", hospitalEn: "Alpha Health Care Clinics", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/CMffgZfD/Smart-Select-20260530-150936-Chrome-Beta.jpg", hospitalLic: "" },
+{ id: 235, name: "سيد نيار أحمد", nameEn: "Syed Niyar Ahmed", degree: "طبيب", degreeEn: "General ", specialty: "عام", specialtyEn: " Medicine", hospital: "عيادات الفا للعناية الطبية", hospitalEn: "Alpha Health Care Clinics", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/CMffgZfD/Smart-Select-20260530-150936-Chrome-Beta.jpg", hospitalLic: "" },
+// ==================== جدة - مجمع شركة البركة الحديثة الطبية ====================
+{ id: 236, name: "أحمد عبدالرسول حميدة", nameEn: "Ahmed Abd El-Rasoul Humaida", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع شركة البركة الحديثة الطبية", hospitalEn: "Al Barakah Modern Medical Complex", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/QMCcWh05/1780147765605.png", hospitalLic: "" },
+{ id: 237, name: "محمد الحاج", nameEn: "Mohamed El Haj", degree: "طبيب عام", degreeEn: "General Practitioner", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع شركة البركة الحديثة الطبية", hospitalEn: "Al Barakah Modern Medical Complex", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/QMCcWh05/1780147765605.png", hospitalLic: "" },
+{ id: 238, name: "احمد على غازي", nameEn: "Ahmed Ali Ghazi ", degree: "أخصائي", degreeEn: "interior ", specialty: "طب الباطنى", specialtyEn: "Specialist ", hospital: "مجمع سما الشرق الطبي", hospitalEn: "SAMA ALSHARQ MEDICAL COMPLEX", hospitalType: "خاص", region: "الرياض حي النسيم الغربي", hospitalLogo: "https://i.postimg.cc/NjMczQ6V/1780757775433.png", hospitalLic: "" },
+{ id: 239, name: "منير صالح علي فهيد", nameEn: "MUNEER SALEH ALI FEHAID", degree: "طبيب", degreeEn: "General ", specialty: "عام", specialtyEn: " Medicine", hospital: "المجمع الطبي الدولي", hospitalEn: "International Medical Complex", hospitalType: "خاص", region: "نجران" , hospitalLogo: "https://i.postimg.cc/JhGnNKSg/1781022090176.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>7510101201210025</span>" },
+// ==================== جدة - مستشفى أندلسية ====================
+{ id: 241, name: "علاء الشامي", nameEn: "Alaa Al-Shami", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية وأمراض كلى", specialtyEn: "Internal Medicine and Nephrology", hospital: "مستشفى أندلسية", hospitalEn: "Andalusia Hospital", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/h4m4P6bZ/1780148518501.png", hospitalLic: "" /* لم يتوفر رقم الترخيص */ },
+{ id: 242, name: "علي البركاتي", nameEn: "Ali Al-Barakaati", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية وأمراض دم", specialtyEn: "Internal Medicine and Hematology", hospital: "مستشفى أندلسية", hospitalEn: "Andalusia Hospital", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/h4m4P6bZ/1780148518501.png", hospitalLic: "" },
+// ==================== جدة - مركز أندلسية لصحة الطفل ====================
+{ id: 244, name: "فاطمة المليجي", nameEn: "Fatima Al-Miliji", degree: "أخصائي أول", degreeEn: "Senior Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مركز أندلسية لصحة الطفل", hospitalEn: "Andalusia Kids Wellness Center", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://i.postimg.cc/h4m4P6bZ/1780148518501.png", hospitalLic: "" },
+// ==================== الرياض - مستشفى الإمام عبدالرحمن الفيصل (أطباء باطنية) ====================
+{ id: 245, name: "باسم الحربي", nameEn: "Bassam Al-Harbi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (جهاز هضمي ومناظير)", specialtyEn: "Internal Medicine (Gastroenterology & Endoscopy)", hospital: "مستشفى الإمام عبدالرحمن الفيصل", hospitalEn: "Imam Abdulrahman Al Faisal Hospital", hospitalType: "حكومي", region: "الرياض", hospitalLogo: "", hospitalLic: "" },
+{ id: 246, name: "أحمد عبدالله حبيب", nameEn: "Ahmed Abdullah Habib", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية (غدد صماء وسكري)", specialtyEn: "Internal Medicine (Endocrinology & Diabetes)", hospital: "مستشفى الإمام عبدالرحمن الفيصل", hospitalEn: "Imam Abdulrahman Al Faisal Hospital", hospitalType: "حكومي", region: "الرياض", hospitalLogo: "", hospitalLic: "" },
+{ id: 247, name: "فيصل العنزي", nameEn: "Faisal Al-Anazi", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى الإمام عبدالرحمن الفيصل", hospitalEn: "Imam Abdulrahman Al Faisal Hospital", hospitalType: "حكومي", region: "الرياض", hospitalLogo: "", hospitalLic: "" },
+// ==================== الرياض - مستشفى الجزيرة الطبي ====================
+{ id: 252, name: "سامح الجندي", nameEn: "Sameh El-Gendy", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine ", hospital: "مستشفى الجزيرة الطبي", hospitalEn: "Al Jazeera Medical Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/8zGBWxKZ/1780518655873.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 250, name: "مريم عبد الرحمن عثمان", nameEn: "Mariam Abdulrahman Othman", degree: "أخصائي", degreeEn: "Specialist", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مستشفى الجزيرة الطبي", hospitalEn: "Al Jazeera Medical Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/8zGBWxKZ/1780518655873.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+// ==================== مستشفى غير محدد - د. ريم الصويان ====================
+{ id: 251, name: "ريم الصويان", nameEn: "Reem Al Suwayan", degree: "استشاري", degreeEn: "Consultant", specialty: "طب الباطني", specialtyEn: " ", hospital: "", hospital: "مستشفى دلة", hospitalEn: "Dallah Hospital", hospitalType: "خاص", region: "الرياض" ,hospitalLogo: "https://i.postimg.cc/wBQmzv9d/Smart-Select-20260604-001226-Canva.jpg", hospitalLic: "رقم الترخيص: <span class='date-fix'>1010132622</span>"},
+// ==================== الجبيل - مستشفى المانع العام ====================
+{ id: 253, name: "رنده عيسي علي محمد", nameEn: "Randa Issa Ali Mohamed", degree: "طبيب ", degreeEn: "General ", specialty: "عام", specialtyEn: "", hospital: "مستشفى المانع العام بالجبيل", hospitalEn: "ALMANA GENEREL HOSPITALS ALJUBAIL", hospitalType: "خاص", region: "الشرقية", hospitalLogo: "https://i.postimg.cc/hv9kmgXM/1780580073146.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3811101001200077</span>" },
+// ==================== الرياض - حي الندوة ====================
+{ id: 254, name: "ماجد باجنيد", nameEn: "Majid Bajneed", degree: "أخصائي", degreeEn: "Specialist", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى عناية العائلة", hospitalEn: "Family Care Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/02s1Pk9C/1780750147683.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 255, name: "السعيدني", nameEn: "Al-Saedni", degree: "طبيب", degreeEn: "Physician", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مستشفى عناية العائلة", hospitalEn: "Family Care Hospital", hospitalType: "خاص", region: "الرياض", hospitalLogo: "https://i.postimg.cc/02s1Pk9C/1780750147683.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>73107125</span>" },
+{ id: 256, name: "عبدالله خلوفه بن صالح طبيخان", nameEn: "ABDULLAH KHLOFH S TABEKHAN", degree: "استشاري", degreeEn: "Consultant ", specialty: " ", specialtyEn: " ", hospital: "مركز الرعاية الصحية الأولية بالنميص", hospitalEn: "Alnumais Primary Health Care Center", hospitalType: "حكومي", region: "عسير النميص", hospitalLogo: "" },
+{ id: 257, name: "فيصل المالكي", nameEn: "Faisal Al-Maliki", degree: "استشاري", degreeEn: "Consultant", specialty: "الطب الباطني", specialtyEn: "Internal Medicine", hospital: "مجمع العيادة الأولى الحديثة", hospitalEn: "The First Clinic Modern Complex", hospitalType: "خاص", region: "جدة", hospitalLogo: "https://cdn-dr-images.vezeeta.com/Assets/Images/Entities/ent8a37e2f37c0c0bb1/Facilities/the-first-clinic_20231119153522691.jpg", hospitalLic: "" },
+{ id: 258, name: "دعاء مصطفى محمد شبانه", nameEn: "Duaa Mustafa Muhammad Shabana ", degree: "أخصائي", degreeEn: "Specialist", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع أصداء الصحة الطبي", hospitalEn: "Dhahrat Laban Clinics Complex", hospitalType: "خاص", region: "الرياض – حي ظهرة لبن", hospitalLogo: "https://i.postimg.cc/h4ymJzds/logo-asdaa-blue-(1).gif", hospitalLic: "" },
+{ id: 270, name: "محمد زيان", nameEn: "Mohamed Zayan", degree: "أخصائي", degreeEn: "Specialist", specialty: "طب عام", specialtyEn: "General Medicine", hospital: "مجمع هاو الطبي", hospitalEn: "How medical group", hospitalType: "خاص", region: " الرياض - المروج", hospitalLogo: "https://i.postimg.cc/Bv7pBq7G/logo-HOW-768x583.png", hospitalLic: "" },
+  // ==================== مكة المكرمة - مجمع مكة الطبي العام (الزاهر) ====================
+  { id: 70, name: "هالة عبدالقادر", nameEn: "Hala Abdulqader", degree: "أخصائية", degreeEn: "Specialist", specialty: "طب العائلة", specialtyEn: "Family Medicine", hospital: "مجمع مكة الطبي", hospitalEn: "Makkah Medical Complex", hospitalType: "خاص", region: " مكة  حي الزاهر", hospitalLogo: "https://i.postimg.cc/13WZMccQ/1781276787801.png", hospitalLic: "" },
+{ id: 269, name: "محمد الأمين", nameEn: "Mohamed Al-Ameen", degree: "استشاري", degreeEn: "Consultant", specialty: "باطنية", specialtyEn: "Internal Medicine", hospital: "مجمع مكة الطبي العام", hospitalEn: "Makkah Medical General Complex", hospitalType: "خاص", region: " مكة  حي الزاهر", hospitalLogo: "https://i.postimg.cc/13WZMccQ/1781276787801.png", hospitalLic: "" },
+{ id: 270, name: "مجدي عسكر", nameEn: "Magdy Askar", degree: "أخصائي", degreeEn: "Specialist", specialty: "أمراض الباطنية", specialtyEn: "Internal Medicine", hospital: "مجمع مكة الطبي العام", hospitalEn: "Makkah Medical General Complex", hospitalType: "خاص", region: " مكة  حي الزاهر", hospitalLogo: "https://i.postimg.cc/13WZMccQ/1781276787801.png", hospitalLic: "" },
+{ id: 271, name: "حمادة نجاح", nameEn: "Hamada Najah", degree: "أخصائي", degreeEn: "Specialist", specialty: "الباطنة", specialtyEn: "Internal Medicine", hospital: "مجمع مكة الطبي العام", hospitalEn: "Makkah Medical General Complex", hospitalType: "خاص", region: " مكة  حي الزاهر", hospitalLogo: "https://i.postimg.cc/13WZMccQ/1781276787801.png", hospitalLic: "" },
+// ==================== مكة المكرمة - مستشفى مركز مكة الطبي (MMC) ====================
+{ id: 261, name: "هند رضا عبدالفتاح", nameEn: "Hind Reda Abdelfattah", degree: "أخصائي أول", degreeEn: "Senior Specialist", specialty: "طب الباطنة", specialtyEn: "Internal Medicine", hospital: "مستشفى مركز مكة الطبي", hospitalEn: "Makkah Medical Center (MMC)", hospitalType: "خاص", region: "مكة حي العمر", hospitalLogo: "https://i.postimg.cc/Z5T2yBNr/1781274738347.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810501201210012</span>" },
+{ id: 262, name: "عبدالله علي", nameEn: "Abdullah Ali", degree: "استشاري", degreeEn: "Consultant", specialty: "طب الباطنة", specialtyEn: "Internal Medicine", hospital: "مستشفى مركز مكة الطبي", hospitalEn: "Makkah Medical Center (MMC)", hospitalType: "خاص", region: "مكة حي العمر", hospitalLogo: "https://i.postimg.cc/Z5T2yBNr/1781274738347.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810501201210012</span>" },
+{ id: 263, name: "محمد شعبان", nameEn: "Mohamed Shaban", degree: "أخصائي", degreeEn: "Specialist", specialty: "طب الباطنة", specialtyEn: "Internal Medicine", hospital: "مستشفى مركز مكة الطبي", hospitalEn: "Makkah Medical Center (MMC)", hospitalType: "خاص", region: "مكة حي العمر", hospitalLogo: "https://i.postimg.cc/Z5T2yBNr/1781274738347.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810501201210012</span>" },
+{ id: 264, name: "شيريهان إبراهيم جوده", nameEn: "Sherihan Ibrahim Gouda", degree: "أخصائي أول", degreeEn: "Senior Specialist", specialty: "الباطنة العامة", specialtyEn: "General Internal Medicine", hospital: "مستشفى مركز مكة الطبي", hospitalEn: "Makkah Medical Center (MMC)", hospitalType: "خاص", region: "مكة", hospitalLogo: "https://i.postimg.cc/Z5T2yBNr/1781274738347.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810501201210012</span>" },
+{ id: 265, name: "حسن السلمي", nameEn: "Hassan Al-Sulami", degree: "استشاري", degreeEn: "Consultant", specialty: "أمراض الباطنة", specialtyEn: "Internal Medicine", hospital: "مستشفى مركز مكة الطبي", hospitalEn: "Makkah Medical Center (MMC)", hospitalType: "خاص", region: "مكة حي العمر", hospitalLogo: "https://i.postimg.cc/Z5T2yBNr/1781274738347.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810501201210012</span>" },
+{ id: 266, name: "محمود عبده", nameEn: "Mahmoud Abdo", degree: "أخصائي", degreeEn: "Specialist", specialty: "طب الباطنة", specialtyEn: "Internal Medicine", hospital: "مستشفى مركز مكة الطبي", hospitalEn: "Makkah Medical Center (MMC)", hospitalType: "خاص", region: "مكة", hospitalLogo: "https://i.postimg.cc/Z5T2yBNr/1781274738347.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810501201210012</span>" },
+{ id: 267, name: "سليمان كرسوع", nameEn: "Sulaiman Karsou", degree: "استشاري", degreeEn: "Consultant", specialty: "أمراض الباطنة", specialtyEn: "Internal Medicine", hospital: "مستشفى مركز مكة الطبي", hospitalEn: "Makkah Medical Center (MMC)", hospitalType: "خاص", region: "مكة حي العمر", hospitalLogo: "https://i.postimg.cc/Z5T2yBNr/1781274738347.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810501201210012</span>" },
+{ id: 268, name: "حسام الدين مصطفى", nameEn: "Hesam El-Din Mostafa", degree: "أخصائي", degreeEn: "Specialist", specialty: "طب الباطنة", specialtyEn: "Internal Medicine", hospital: "مستشفى مركز مكة الطبي", hospitalEn: "Makkah Medical Center (MMC)", hospitalType: "خاص", region: "مكة حي العمر", hospitalLogo: "https://i.postimg.cc/Z5T2yBNr/1781274738347.png", hospitalLic: "رقم الترخيص: <span class='date-fix'>3810501201210012</span>" },
+   ];  
+
+    function initFilters() {
+        const regions = [...new Set(db.map(d => d.region))];
+        const regSel = document.getElementById('selRegion');
+        regions.forEach(r => regSel.innerHTML += `<option value="${r}">${r}</option>`);
+    }
+
+    function updateFilters() {
+        const region = document.getElementById('selRegion').value;
+        const type = document.getElementById('selType').value;
+        const hospital = document.getElementById('selHospital').value;
+        const specialty = document.getElementById('selSpecialty').value;
+
+        const searchTerm = (document.getElementById('hospSearch')?.value || '').trim().toLowerCase();
+        const filteredHospitals = [...new Set(db.filter(d => (!region || d.region === region) && (!type || d.hospitalType === type)).map(d => d.hospital))]
+            .filter(h => !searchTerm || h.toLowerCase().includes(searchTerm) || (db.find(x => x.hospital === h)?.hospitalEn || '').toLowerCase().includes(searchTerm));
+        updateSelect('selHospital', filteredHospitals, hospital);
+
+        const filteredSpecialties = [...new Set(db.filter(d => (!region || d.region === region) && (!type || d.hospitalType === type) && (!hospital || d.hospital === hospital)).map(d => d.specialty))];
+        updateSelect('selSpecialty', filteredSpecialties, specialty);
+
+        const filteredDoctors = db.filter(d => (!region || d.region === region) && (!type || d.hospitalType === type) && (!hospital || d.hospital === hospital) && (!specialty || d.specialty === specialty));
+        const docSel = document.getElementById('selDoctor');
+        docSel.innerHTML = '<option value="">-- اختر الطبيب الممارس --</option>';
+        filteredDoctors.forEach(d => docSel.innerHTML += `<option value="${d.id}">${d.name}</option>`);
+    }
+
+    function updateSelect(id, list, current) {
+        const el = document.getElementById(id);
+        el.innerHTML = '<option value="">-- الكل --</option>';
+        list.forEach(item => el.innerHTML += `<option value="${item}" ${item === current ? 'selected' : ''}>${item}</option>`);
+    }
+
+    function applyDoctorData() {
+        const id = document.getElementById('selDoctor').value;
+        if(!id) return;
+        const doctor = db.find(x => x.id == id);
+        document.getElementById('hospAr').value = doctor.hospital;
+        document.getElementById('hospEn').value = doctor.hospitalEn;
+        document.getElementById('docAr').value = doctor.name;
+        document.getElementById('docEn').value = doctor.nameEn.toUpperCase();
+        document.getElementById('jobAr').value = doctor.degree + " " + doctor.specialty;
+        document.getElementById('jobEn').value = doctor.degreeEn + " " + doctor.specialtyEn;
+
+        // توثيق آلي: PSL للخاص / GSL للحكومي + 11 رقم عشوائي
+        const prefix = (doctor.hospitalType === "خاص") ? "PSL" : "GSL";
+        const generatedCode = prefix + generate11Digits();
+        document.getElementById("serviceCode").value = generatedCode;
+        document.getElementById('resID').value = generatedCode;
+        document.getElementById('customLogo').value = doctor.hospitalLogo || "";
+        document.getElementById('hospLic').value = doctor.hospitalLic || "";
+    }
+
+    // استخراج جزء التاريخ من datetime-local
+    function dateOnly(v) { return (v || '').split('T')[0]; }
+
+    function calc() {
+        const dInVal = document.getElementById("dIn").value;
+        const dOutVal = document.getElementById("dOut").value;
+
+        if (dInVal) document.getElementById("dInHij").value = getHijriValue(dateOnly(dInVal));
+        if (dOutVal) document.getElementById("dOutHij").value = getHijriValue(dateOnly(dOutVal));
+
+        if (dInVal && dOutVal) {
+            const d1 = new Date(dInVal);
+            const d2 = new Date(dOutVal);
+            if (d2 >= d1) {
+                // فترة الانتظار بالدقائق
+                const totalMin = Math.round((d2 - d1) / 60000);
+                const hrs = Math.floor(totalMin / 60);
+                const mins = totalMin % 60;
+                let txt = "";
+                if (hrs > 0) txt += hrs + (hrs === 1 ? " hour" : " hours");
+                if (hrs > 0 && mins > 0) txt += " and ";
+                if (mins > 0) txt += mins + " mins";
+                if (!txt) txt = "0 mins";
+                document.getElementById("waitPeriod").value = txt;
+                document.getElementById("dIss").value = dateOnly(dOutVal);
+
+                const now = new Date();
+                const time = now.toTimeString().split(' ')[0].substring(0, 5);
+                document.getElementById("printDateTime").value = `${dateOnly(dOutVal)}T${time}`;
+            }
+        }
+    }
+
+    function formatDD(dateStr) {
+        if(!dateStr) return "";
+        var d = dateOnly(dateStr).split('-');
+        return d[2] + '-' + d[1] + '-' + d[0];
+    }
+
+    // تنسيق الوقت 12 ساعة AM/PM
+    function fmtTime12(dtStr) {
+        if (!dtStr) return "";
+        const t = dtStr.split('T')[1] || "00:00";
+        let [h, m] = t.split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const ampmAr = h >= 12 ? 'مساءً' : 'صباحاً';
+        h = h % 12 || 12;
+        const hh = (h < 10 ? '0' + h : '' + h);
+        const mm = (m < 10 ? '0' + m : '' + m);
+        return { en: hh + ':' + mm + ' ' + ampm, ar: hh + ':' + mm + ' ' + ampmAr };
+    }
+
+    // فترة الانتظار بالعربية
+    function waitArabic(dInVal, dOutVal) {
+        if (!dInVal || !dOutVal) return "";
+        const d1 = new Date(dInVal), d2 = new Date(dOutVal);
+        if (d2 < d1) return "";
+        const totalMin = Math.round((d2 - d1) / 60000);
+        const hrs = Math.floor(totalMin / 60);
+        const mins = totalMin % 60;
+        let parts = [];
+        if (hrs > 0) parts.push(hrs + " ساعة");
+        if (mins > 0) parts.push(mins + " دقيقة");
+        return parts.join(" و ") || "0 دقيقة";
+    }
+
+    function syncVisitType() {
+        const map = { "المختبرات": "Laboratory", "تنويم": "InPatient", "طوارئ": "Emergency" , "عيادات": "OutPatient" };
+        const ar = document.getElementById('visitTypeAr').value;
+        document.getElementById('visitTypeEn').value = map[ar] || "OutPatient";
+    }
+
+    async function saveLeaveToDb(getVal) {
+        try {
+            const code = getVal('serviceCode');
+            const nid  = getVal('natID');
+            if (!code || !nid) return;
+            const payload = { leave: {
+                leaveCode: code, serviceCode: code,
+                nationalId: nid, idNumber: nid,
+                name: getVal('nameAr'),
+                admissionDate: (getVal('dIn')||'').split('T')[0],
+                dischargeDate: (getVal('dOut')||'').split('T')[0],
+                leaveDuration: (function(){
+                    const a=getVal('dIn'), b=getVal('dOut');
+                    if(!a||!b) return '';
+                    const d=Math.round((new Date(b)-new Date(a))/86400000)+1;
+                    return String(d>0?d:1);
+                })(),
+                doctorName: getVal('docAr'),
+                jobTitle: getVal('jobAr'),
+                issueDate: getVal('dIss'),
+                leaveType: 'مشهد مراجعة'
+            }};
+            await fetch('/api/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        } catch(e){ console.warn('save failed', e); }
+    }
+    function printReport() {
+        const getVal = (id) => document.getElementById(id).value;
+        saveLeaveToDb(getVal);
+        const logoUrl = getVal('customLogo') || "https://i.postimg.cc/Jz1sqJ6J/Saudi-Ministry-of-Health-Logo-svg.png";
+
+        const dInVal = getVal('dIn');
+        const dOutVal = getVal('dOut');
+        const tIn = fmtTime12(dInVal);
+        const tOut = fmtTime12(dOutVal);
+
+        const printDT = new Date(getVal('printDateTime'));
+        var h = printDT.getHours(), m = printDT.getMinutes();
+        var ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        var strTime = (h < 10 ? '0'+h : h) + ':' + (m < 10 ? '0'+m : m) + ' ' + ampm;
+        var dateNow = printDT.toLocaleDateString('en-GB', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+
+        var win = window.open('', '_blank');
+        var c = '<html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&family=Times+New+Roman:wght@400;700&display=swap" rel="stylesheet"><style>';
+        c += 'body { margin: 0; padding: 50px 60px; font-family: "Noto Sans Arabic", serif; direction: rtl; -webkit-print-color-adjust: exact; print-color-adjust: exact; }';
+        c += '.header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; margin-bottom: 30px; }';
+        c += '.h-center { text-align: center; } .h-center img { width: 220px; margin-top: 25px; }';
+        c += '.t-ar { color: #306db5 !important; font-size: 28px; font-weight: 700; margin-top: 18px;} .t-en { color: #2c3e77 !important; font-size: 25px; font-weight: 700; font-family: "Times New Roman"; }';
+        c += 'table { width: 100%; border-collapse: collapse; margin: 25px 0; border: 1px solid #d4d4d4; table-layout: fixed; }';
+        c += 'td { border: 1px solid #d4d4d4; padding: 12px; text-align: center; font-size: 16px; height: 48px; }';
+        c += '.ar-label { font-weight: bold; color: #366fb5 !important; } .en-label { font-family: "Times New Roman", serif !important; color: #366fb5 !important; font-weight: bold; }';
+        c += '.data-cell { color: #2c3e77 !important; font-family: "Times New Roman", serif !important; font-weight: normal; }';
+        c += '.date-fix { direction: ltr !important; unicode-bidi: bidi-override !important; display: inline-block; font-family: "Times New Roman", serif !important; color: inherit; font-weight: normal; }';
+        c += 'td.blue { background-color: #2c3e77 !important; color: #ffffff !important; }';
+        c += '.gray { background-color: #f5f5f5 !important; }';
+        c += '.btm { display: flex; justify-content: space-between; margin-top: 40px; align-items: flex-start; }';
+        c += '.btm-right { width: 48%; padding-right: 15px; display: flex; flex-direction: column; align-items: center; text-align: center; }';
+        c += '.btm-divider { width: 1px; height: 230px; background-color: #d4d4d4; margin: 0 10px; }';
+        c += '.btm-left { width: 48%; display: flex; flex-direction: column; align-items: center; text-align: center; }';
+        c += '.btm-left img { margin-top: -10px !important; }';
+        c += '.verify-box { margin-top: 15px !important; }';
+        c += '.stamp-box { letter-spacing: -0.8px !important; }';
+        c += '.verify-box { margin-top: 5px; text-align: center; width: 100%; }';
+        c += '.link-verify { font-family: "Times New Roman", serif !important; font-size: 14px; font-weight: bold; color: blue !important; text-decoration: underline; display: block; line-height: 2.9; }';
+        c += '.stamp-box { margin-top: 20px; text-align: left; width: 100%; font-weight: bold; line-height: 1.6; color: #000 !important; font-family: "Times New Roman", serif !important; }';
+        c += '@media print { @page { size: A3; margin: 0; } body { padding: 50px 60px; } }';
+        c += '</style></head><body onload="window.print()">';
+
+        const titleAr = 'مشهد مراجعة';
+        const titleEn = 'Statement of Visit';
+        // الترويسة: يمين = شعار صحة | وسط = شعار المملكة + العنوان | يسار = زخرفة
+        c += '<div class="header">';
+        c += '<div style="text-align:right;"><img src="https://i.postimg.cc/k5xY1N5Q/1771635125900.png" height="120"></div>';
+        c += '<div class="h-center"><img src="https://i.postimg.cc/L4GwNs4M/1771631857257.png"><div class="t-ar">'+titleAr+'</div><div class="t-en">'+titleEn+'</div></div>';
+        c += '<div style="text-align:left;"><img src="https://i.postimg.cc/9QBmnSBw/sht.png" height="80"></div>';
+        c += '</div>';
+
+        c += '<table><colgroup><col width="20%"><col width="30%"><col width="30%"><col width="20%"></colgroup>';
+
+        // رمز الإجازة (صف أبيض كامل)
+        c += '<tr><td class="ar-label">رمز الإجازة</td><td colspan="2" class="data-cell" style="font-size:18px;">'+getVal('serviceCode')+'</td><td class="en-label">Leave ID</td></tr>';
+
+        // تنظيف هـ من التاريخ الهجري
+        const cleanHij = (v) => (v || '').replace(/هـ?/g, '').replace(/\s+/g, ' ').trim();
+        const dInHijClean = cleanHij(getVal('dInHij'));
+        const dOutHijClean = cleanHij(getVal('dOutHij'));
+
+        // تاريخ الدخول مع الوقت (من اليمين: التاريخ ثم الوقت ثم صباحاً/مساءً)
+        c += '<tr><td class="ar-label blue">تاريخ الدخول</td>'
+           + '<td class="blue"><span class="date-fix">'+dInHijClean+'</span> - <span class="date-fix">'+tIn.ar.split(' ')[0]+'</span> '+tIn.ar.split(' ')[1]+'</td>'
+           + '<td dir="ltr" class="blue"><span class="date-fix">'+formatDD(dInVal)+'</span> - <span class="date-fix">'+tIn.en+'</span></td>'
+           + '<td class="en-label blue">Admission Date</td></tr>';
+
+        // تاريخ الخروج مع الوقت
+        c += '<tr><td class="ar-label blue">تاريخ الخروج</td>'
+           + '<td class="blue"><span class="date-fix">'+dOutHijClean+'</span> - <span class="date-fix">'+tOut.ar.split(' ')[0]+'</span> '+tOut.ar.split(' ')[1]+'</td>'
+           + '<td dir="ltr" class="blue"><span class="date-fix">'+formatDD(dOutVal)+'</span> - <span class="date-fix">'+tOut.en+'</span></td>'
+           + '<td class="en-label blue">Discharge Date</td></tr>';
+
+        // فترة الانتظار
+        c += '<tr><td class="ar-label blue">فترة الانتظار</td>'
+           + '<td class="blue">'+waitArabic(dInVal, dOutVal)+'</td>'
+           + '<td dir="ltr" class="blue">'+getVal('waitPeriod')+'</td>'
+           + '<td class="en-label blue">Waiting Period</td></tr>';
+
+        // تاريخ إصدار التقرير (صف أبيض كامل)
+        c += '<tr><td class="ar-label">تاريخ إصدار التقرير</td><td colspan="2" class="data-cell"><span class="date-fix">'+formatDD(getVal('dIss'))+'</span></td><td class="en-label">Issue Date</td></tr>';
+
+        // الاسم
+        c += '<tr class="gray"><td class="ar-label">الاسم</td><td style="color: #2c3e77 !important; font-weight:normal;">'+getVal('nameAr')+'</td><td class="data-cell">'+getVal('nameEn').toUpperCase()+'</td><td class="en-label">Name</td></tr>';
+        // الهوية
+        c += '<tr><td class="ar-label">رقم الهوية / الإقامة</td><td colspan="2" class="data-cell">'+getVal('natID')+'</td><td class="en-label">National ID / Iqama</td></tr>';
+        // الجنسية
+        c += '<tr class="gray"><td class="ar-label">الجنسية</td><td style="color: #2c3e77 !important; font-weight:normal;">'+getVal('nationAr')+'</td><td class="data-cell">Saudi Arabia</td><td class="en-label">Nationality</td></tr>';
+        // جهة العمل
+        c += '<tr><td class="ar-label">جهة العمل</td><td style="color: #2c3e77 !important; font-weight:normal;">'+getVal('empAr')+'</td><td class="data-cell">'+getVal('empEn').toUpperCase()+'</td><td class="en-label">Employer</td></tr>';
+        // اسم الممارس
+        c += '<tr class="gray"><td class="ar-label">اسم الممارس</td><td style="color: #2c3e77 !important; font-weight:normal;">'+getVal('docAr')+'</td><td class="data-cell">'+getVal('docEn')+'</td><td class="en-label">Practitioner Name</td></tr>';
+        // المسمى الوظيفي
+        c += '<tr><td class="ar-label">المسمى الوظيفي</td><td style="color: #2c3e77 !important; font-weight:normal;">'+getVal('jobAr')+'</td><td class="data-cell">'+getVal('jobEn')+'</td><td class="en-label">Position</td></tr>';
+        // نوع الزيارة
+        c += '<tr class="gray"><td class="ar-label">نوع الزيارة</td><td style="color: #2c3e77 !important; font-weight:normal;">'+getVal('visitTypeAr')+'</td><td class="data-cell">'+getVal('visitTypeEn')+'</td><td class="en-label">Visit Type</td></tr>';
+        c += '</table>';
+
+        // الذيل: يمين = شعار المنشأة | يسار = الباركود ورابط التحقق + الوقت/التاريخ
+        c += '<div class="btm"><div class="btm-right"><img src="'+logoUrl+'" height="130"><div style="font-weight:700; font-size:14px; margin-top:10px; color:#000000 !important;">'+getVal('hospAr')+'<br><span style="font-family:\'Times New Roman\'; font-weight:700; color:#000000 !important;">'+getVal('hospEn')+'</span><br><span style="font-size:14px; font-weight:700; font-family:\'Noto Sans Arabic\', sans-serif; color:#000000 !important;">'+getVal('hospLic').replace(/class=\'date-fix\'/g, "class=\'date-fix\' style=\'font-weight:bold !important;\'")+'</span></div><div style="margin-top:50px; width:100%; text-align:right;"><img src="https://i.postimg.cc/HsxMYqJX/Smart-Select-20260219-042147-Drive.jpg" height="120"></div></div><div class="btm-divider"></div>';
+        c += '<div class="btm-left"><img src="https://i.postimg.cc/RZ5KQNt0/Smart-Select-20260314-050330-Drive.jpg" width="130"><div class="verify-box"><span style="font-size: 13px; font-weight: bold; display: block; line-height: 2.6;">للتحقق من بيانات التقرير يرجى التأكد من زيارة موقع منصة صحة<br>الرسمي</span><span style="font-family:\'Times New Roman\'; font-size: 14px; font-weight: bold; letter-spacing: -0.5px; display: block; line-height: 1.1; margin-top: 1px;">To check the report please visit Seha\'s official website</span><a href="https://seha-site-ynvt.vercel.app/" target="_blank" class="link-verify">www.seha.sa/#/inquiries/slenquiry</a></div><div class="stamp-box"><span dir="ltr">' + strTime + '</span><br><span>' + dateNow + '</span></div></div></div></body></html>';
+
+        win.document.write(c);
+        win.document.close();
+    }
+
+    window.onload = function() {
+        initFilters();
+        updateFilters();
+        const now = new Date();
+        const date = now.toISOString().split('T')[0];
+        const time = now.toTimeString().split(' ')[0].substring(0, 5);
+        document.getElementById("printDateTime").value = `${date}T${time}`;
+    };
+</script>
+</body>
+</html>
