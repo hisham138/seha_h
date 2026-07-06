@@ -4,7 +4,7 @@
  */
 
 // ⚠️ ضع هنا الرابط الطويل الذي نسخته بنجاح من الـ Google Apps Script وينتهي بـ /exec
-const GOOGLE_SCRIPT_URL = "ضع_رابط_جوجل_شيت_الخاص_بك_هنا";
+const GOOGLE_SCRIPT_URL = "t.google.com/macros/s/AKfycbwa-SWU2u88TILv44ccxrqkL-2z3DfcVjZ46g3SDFvXS7N-9skAwAJc8lag5e7wMqxlfQ/exec";
 
 /**
  * دالة حفظ البيانات المحدثة: ترسل البيانات حياً إلى الإكسل وتحتفظ بنسخة احتياطية محلية
