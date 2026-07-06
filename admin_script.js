@@ -1,18 +1,45 @@
-// دالة لحفظ البيانات (مبسطة)
+/**
+ * سكريبت نظام منصة صحة - لوحة المسؤول لإدخال وتوثيق الإجازات المرضية حياً
+ * التوثيق: تم تعديل الدالة لتخزين البيانات حياً في جدول Google Sheets مثبت الأبعاد
+ */
+
+// ⚠️ ضع هنا الرابط الطويل الذي نسخته بنجاح من الـ Google Apps Script وينتهي بـ /exec
+const GOOGLE_SCRIPT_URL = "ضع_رابط_جوجل_شيت_الخاص_بك_هنا";
+
+/**
+ * دالة حفظ البيانات المحدثة: ترسل البيانات حياً إلى الإكسل وتحتفظ بنسخة احتياطية محلية
+ * @param {Object} leaveData - كائن يحتوي على تفاصيل الإجازة المرضية المعتمدة
+ */
 async function saveToGoogleSheets(leaveData) {
-  // حفظ في localStorage فقط
-  return new Promise((resolve) => {
-    try {
-      const arr = JSON.parse(localStorage.getItem("seha_leaves") || "[]");
-      arr.push(leaveData);
-      localStorage.setItem("seha_leaves", JSON.stringify(arr));
-      resolve(true);
-    } catch (error) {
-      resolve(false);
-    }
-  });
+  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ضع_رابط")) {
+    console.error("خطأ: لم يتم تكوين رابط قاعدة بيانات Google Sheets بعد.");
+    return false;
+  }
+
+  try {
+    // 1. إرسال البيانات فورياً وحياً إلى سكريبت جوجل شيت عبر طلب POST آمن
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors", // لمنع قيود الحماية والأمان أثناء الإرسال من الجوال
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(leaveData) // تحويل كائن البيانات إلى نص JSON مرن ليفهمه الإكسل
+    });
+
+    // 2. عمل نسخة احتياطية في الذاكرة المحلية للمتصفح لزيادة استقرار النظام
+    const arr = JSON.parse(localStorage.getItem("seha_leaves") || "[]");
+    arr.push(leaveData);
+    localStorage.setItem("seha_leaves", JSON.stringify(arr));
+    
+    return true; // إرجاع نجاح العملية لفتح واجهة العرض والطباعة للمسؤول
+  } catch (error) {
+    console.error("فشل في مزامنة البيانات مع جوجل شيت:", error);
+    return false;
+  }
 }
 
+// انتظر تحميل عناصر واجهة المستخدم بالكامل قبل تفعيل المستمعات البرمجية
 document.addEventListener("DOMContentLoaded", () => {
   const submitBtn = document.getElementById("submit");
   const toggleBtn = document.getElementById("toggleButton");
@@ -36,12 +63,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const copyLeaveBtn = document.getElementById("copyLeaveBtn");
   const typeChips = document.querySelectorAll(".type-chip");
 
+  // دالة توليد رمز الخدمة العشوائي المكون من 11 رقماً
   function generateLeaveCode(length = 11) {
     let digits = "";
     for (let i = 0; i < length; i++) digits += Math.floor(Math.random() * 10);
     return digits;
   }
 
+  // حساب مدة الإجازة تلقائياً بالأيام بناءً على تاريخ الدخول والخروج
   function calculateLeaveDuration() {
     if (!admissionDate || !dischargeDate || !leaveDuration) return;
     const s = admissionDate.value;
@@ -56,14 +85,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (admissionDate) admissionDate.addEventListener("change", calculateLeaveDuration);
   if (dischargeDate) dischargeDate.addEventListener("change", calculateLeaveDuration);
 
-  function loadSehaLeaves() {
-    try {
-      return JSON.parse(localStorage.getItem("seha_leaves") || "[]");
-    } catch {
-      return [];
-    }
-  }
-
   function normalize(v) {
     return String(v || "").trim();
   }
@@ -74,6 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => { el.style.display = "none"; }, ms);
   }
 
+  // تحديث الرمز المعروض للمسؤول بناءً على نوع الإجازة المختار
   function updateLeaveDisplay(code, type) {
     if (!leaveCodeDisplay) return;
     leaveCodeDisplay.dataset.code = code;
@@ -112,6 +134,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // معالج الحدث عند الضغط على زر "إنشاء وحفظ الإجازة"
   if (submitBtn) {
     submitBtn.addEventListener("click", async (e) => {
       e.preventDefault();
@@ -130,6 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const doc = normalize(doctorName?.value);
       const job = normalize(jobTitle?.value);
 
+      // التحقق من ملء كافة الحقول قبل التوجيه لقاعدة البيانات
       if (!nid || !place || !issue || !from || !to || !days || !doc || !job) {
         if (alertError) { alertError.textContent = "الرجاء تعبئة جميع الحقول المطلوبة."; alertError.style.display = "block"; }
         return;
@@ -139,6 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const leaveCode = generateLeaveCode(11);
         const leaveType = String(leaveTypeSelect?.value || "").trim();
 
+        // بناء كائن البيانات المتوافق مع متطلبات الأبعاد في جدول جوجل شيت
         const leaveObj = {
           leaveCode: leaveCode,
           serviceCode: leaveCode,
@@ -156,7 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
           date: issue
         };
 
-        // حفظ في localStorage
+        // استدعاء دالة المزامنة الحية مع جوجل شيت التي قمنا بتحديثها
         const saveResult = await saveToGoogleSheets(leaveObj);
         
         if (saveResult) {
@@ -166,8 +191,8 @@ document.addEventListener("DOMContentLoaded", () => {
           if (submitBtn) submitBtn.style.display = "none";
           if (toggleBtn) toggleBtn.style.display = "inline-block";
 
-          // رسالة للمستخدم
-          alert(`تم إنشاء الإجازة بنجاح! ✅\n\nرمز الإجازة: ${leaveCode}\n\nملاحظة: هذه الإجازة مخزنة مؤقتاً. للإضافة الدائمة يرجى تحديث ملف data.json`);
+          // رسالة تأكيد للمستخدم بنجاح العمل والمزامنة الحية
+          alert(`تم إنشاء الإجازة بنجاح ومزامنتها حياً مع جدول البيانات! ✅\n\nرمز الإجازة: ${leaveCode}`);
           
           if (successAlert) showTemporaryAlert(successAlert, 2000);
         } else {
@@ -175,11 +200,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       } catch (err) {
         console.error("خطأ أثناء الإنشاء:", err);
-        if (alertError2) { alertError2.textContent = "خطأ أثناء الإنشاء"; alertError2.style.display = "block"; }
+        if (alertError2) { alertError2.textContent = "خطأ أثناء الإنشاء الفوري في قاعدة البيانات"; alertError2.style.display = "block"; }
       }
     });
   }
 
+  // معالج تفعيل زر نسخ رمز الإجازة التلقائي
   if (copyLeaveBtn) {
     copyLeaveBtn.addEventListener("click", async () => {
       const code = leaveCodeDisplay?.dataset?.code || "";
@@ -223,6 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // زر إفراغ الحقول وتجهيز الواجهة لإدخال مريض جديد آخر
   if (toggleBtn) {
     toggleBtn.addEventListener("click", (e) => {
       e.preventDefault();
