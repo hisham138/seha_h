@@ -1,262 +1,132 @@
-// Toggle navigation menu
-function toggleNavigationMenu() {
-  const navigationMenu = document.getElementById('navigationPopupMenu');
-  if (navigationMenu) {
-    navigationMenu.style.display = navigationMenu.style.display === 'flex' ? 'none' : 'flex';
+/**
+ * سكريبت نظام منصة صحة لإدارة وتوثيق الإجازات المرضية حياً عبر Google Sheets
+ * التوثيق: تم إعداد هذا الملف ليتوافق مع أبعاد وترتيب جدول البيانات المعتمد
+ */
+
+// ⚠️ ضع هنا الرابط الطويل الذي نسخته بنجاح من الـ Google Apps Script وينتهي بـ /exec
+const GOOGLE_SCRIPT_URL = "ضع_رابط_جوجل_شيت_الخاص_بك_هنا";
+
+// ==========================================
+// 1. قسم إدارة الحفظ (خاص بصفحة المسؤول)
+// ==========================================
+
+/**
+ * دالة حفظ مريض جديد: ترسل البيانات مباشرة إلى جوجل شيت بالترتيب العربي المثبت
+ * @param {Object} leaveData - كائن يحتوي على بيانات الإجازة المرضية للمريض
+ */
+async function saveToGoogleSheets(leaveData) {
+  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ضع_رابط")) {
+    console.error("خطأ: لم يتم تكوين رابط قاعدة بيانات Google Sheets بعد.");
+    return false;
   }
-}
 
-// Helpers
-function normalize(v) {
-  return String(v || "").trim();
-}
-function normalizeForCompare(v) {
-  return String(v || "").replace(/\s+/g, "").trim().toLowerCase();
-}
-function digitsOnly(v) {
-  return String(v || "").replace(/\D/g, "");
-}
-
-// دالة لتحميل البيانات من ملف JSON
-async function loadLeavesFromJSON() {
   try {
-    const response = await fetch('./data.json');
-    const data = await response.json();
-    return data.leaves || [];
+    // إرسال البيانات آلياً إلى سكريبت جوجل شيت عبر طلب POST آمن
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors", // لمنع قيود الحماية (CORS) أثناء الإرسال من الهواتف الذكية
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(leaveData) // تحويل كائن البيانات إلى نص JSON مرن
+    });
+    
+    // حفظ نسخة احتياطية في الذاكرة المحلية للمتصفح لضمان استقرار العمل
+    const localData = JSON.parse(localStorage.getItem("seha_leaves") || "[]");
+    localData.push(leaveData);
+    localStorage.setItem("seha_leaves", JSON.stringify(localData));
+    
+    console.log("تم مزامنة البيانات بنجاح مع جدول جوجل شيت المثبت.");
+    return true; 
   } catch (error) {
-    console.log('جاري استخدام البيانات المحلية');
-    return [];
+    console.error("خطأ أثناء المزامنة الحية مع قاعدة البيانات:", error);
+    return false;
   }
 }
 
-// دالة للبحث في Google Sheets (معلقة حالياً)
+// ==========================================
+// 2. قسم الاستعلام والتحقق (خاص بصفحة المستخدم)
+// ==========================================
+
+/**
+ * دالة جلب واستعلام: تبحث في جدول جوجل شيت بناءً على رمز الخدمة ورقم الهوية
+ * @param {string} serviceCode - رمز الخدمة أو الإجازة المدخل
+ * @param {string} identityNumber - رقم الهوية أو الإقامة المدخل
+ */
 async function searchInGoogleSheets(serviceCode, identityNumber) {
-  return null;
-}
+  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ضع_رابط")) {
+    console.error("خطأ: لم يتم تكوين رابط قاعدة بيانات Google Sheets بعد.");
+    return null;
+  }
 
-// Initialize sample data
-function initializeApplicationData() {
-  if (!localStorage.getItem("seha_leaves")) {
-    localStorage.setItem("seha_leaves", JSON.stringify([]));
+  try {
+    // جلب مصفوفة البيانات الحية من دالة doGet البرمجية في السكريبت
+    const response = await fetch(GOOGLE_SCRIPT_URL);
+    const result = await response.json();
+    const leaves = result.leaves || [];
+
+    // المطابقة التامة والذكية لتفادي المسافات أو اختلافات الحروف
+    const matchedRecord = leaves.find(record => 
+      normalizeForCompare(record.serviceCode) === normalizeForCompare(serviceCode) &&
+      normalizeForCompare(record.nationalId) === normalizeForCompare(identityNumber)
+    );
+
+    return matchedRecord || null;
+  } catch (error) {
+    console.error("خطأ أثناء استرجاع بيانات التحقق الفوري:", error);
+    return null;
   }
 }
 
-// Show result (محسنة للهواتف)
-function showResultRecord(record) {
-  const resultsDisplayBox = document.getElementById('resultsDisplayBox');
-  if (resultsDisplayBox) {
-    resultsDisplayBox.innerHTML = `
-      <div class="information-label">الاسم</div><div class="information-data">${normalize(record.name) || "-"}</div>
-      <div class="information-label">تاريخ إصدار تقرير الإجازة</div><div class="information-data">${normalize(record.issueDate || record.date) || "-"}</div>
-      <div class="information-label">تبدأ من</div><div class="information-data">${normalize(record.admissionDate || record.from) || "-"}</div>
-      <div class="information-label">وحتى</div><div class="information-data">${normalize(record.dischargeDate || record.to) || "-"}</div>
-      <div class="information-label">المدة بالأيام</div><div class="information-data">${normalize(record.leaveDuration || record.days) || "-"}</div>
-      <div class="information-label">اسم الطبيب</div><div class="information-data">${normalize(record.doctorName || record.doctor) || "-"}</div>
-      <div class="information-label">المسمى الوظيفي</div><div class="information-data">${normalize(record.jobTitle || record.title) || "-"}</div>
-      
-    `;
-    resultsDisplayBox.style.display = 'block';
-  }
+/**
+ * دالة معالجة النصوص لضمان دقة البحث وعدم تأثره بالمسافات الزائدة
+ */
+function normalizeForCompare(text) {
+  if (!text) return "";
+  return String(text).trim().toLowerCase();
 }
 
-// Main Search
-async function validateAndCheckData(e) {
-  if (e && e.preventDefault) e.preventDefault();
+// ==========================================
+// 3. قسم التحكم والربط بالواجهة الرسومية (UI)
+// ==========================================
 
-  const identityNumberInput = document.getElementById('identityNumber');
-  const serviceCodeInput = document.getElementById('serviceCode');
+/**
+ * الدالة الأساسية المستدعاة عند ضغط المستخدم على زر "استعلام"
+ */
+async function validateAndCheckData() {
+  // جلب العناصر المدخلة من شاشة هاتفك الأنيقة
+  const serviceCodeInput = document.getElementById("serviceCode")?.value || "";
+  const identityInput = document.getElementById("identityNumber")?.value || "";
   
-  if (!identityNumberInput || !serviceCodeInput) return;
+  const loadingElement = document.getElementById("loadingStatus");
+  if (loadingElement) loadingElement.style.display = "block"; // إظهار مؤشر التحميل
 
-  const identityNumber = normalize(identityNumberInput.value);
-  const serviceCode = normalize(serviceCodeInput.value);
+  // استدعاء قاعدة البيانات المستقلة والجديدة فوراً
+  const matchedRecord = await searchInGoogleSheets(serviceCodeInput, identityInput);
 
-  const emptyFieldsErrorMessage = document.getElementById('emptyFieldsErrorMessage');
-  const searchButton = document.getElementById('searchButton');
-  const loadingSpinnerElement = document.getElementById('loadingSpinnerElement');
-  const errorMessageTab = document.getElementById("errorMessageTab");
-  const resultsDisplayBox = document.getElementById("resultsDisplayBox");
+  if (loadingElement) loadingElement.style.display = "none"; // إخفاء مؤشر التحميل
 
-  if (!identityNumber || !serviceCode) {
-    if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = 'block';
-    if (errorMessageTab) errorMessageTab.style.display = 'none';
-    if (resultsDisplayBox) resultsDisplayBox.style.display = 'none';
-    return;
+  if (matchedRecord) {
+    // إذا وجد المريض، نقوم بتمرير البيانات إلى واجهة العرض الفاخرة الموضحة بصورتك
+    displayLeaveDetails(matchedRecord);
   } else {
-    if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = 'none';
-  }
-
-  if (loadingSpinnerElement) loadingSpinnerElement.style.display = 'inline-block';
-  if (searchButton) {
-    searchButton.classList.add('loading');
-    searchButton.disabled = true;
-  }
-
-  // البحث في البيانات من ملف JSON
-  const jsonData = await loadLeavesFromJSON();
-  const targetCodeDigits = digitsOnly(serviceCode);
-  const targetIdDigits = digitsOnly(identityNumber);
-
-  let found = jsonData.find(rec => {
-    const recordedCodeDigits = digitsOnly(normalize(rec.leaveCode || rec.serviceCode || ""));
-    const recordedIdDigits = digitsOnly(normalize(rec.nationalId || rec.idNumber || ""));
-    return recordedCodeDigits === targetCodeDigits && recordedIdDigits === targetIdDigits;
-  });
-
-  // إذا لم يجد في JSON، يبحث في localStorage
-  if (!found) {
-    const stored = JSON.parse(localStorage.getItem("seha_leaves") || "[]");
-    found = stored.find(rec => {
-      const recordedCodeDigits = digitsOnly(normalize(rec.leaveCode || rec.serviceCode || ""));
-      const recordedIdDigits = digitsOnly(normalize(rec.nationalId || rec.idNumber || ""));
-      return recordedCodeDigits === targetCodeDigits && recordedIdDigits === targetIdDigits;
-    });
-  }
-
-  if (loadingSpinnerElement) loadingSpinnerElement.style.display = 'none';
-  if (searchButton) {
-    searchButton.classList.remove('loading');
-    searchButton.disabled = false;
-  }
-
-  if (found) {
-    showResultRecord(found);
-    if (errorMessageTab) errorMessageTab.style.display = 'none';
-    
-    const searchBtn = document.getElementById('searchButton');
-    const backBtn = document.getElementById('backButton');
-    const newSearchBtn = document.getElementById('newSearchButton');
-    const backToListBtn = document.getElementById('backToListButton');
-    
-    if (searchBtn) searchBtn.style.display = 'none';
-    if (backBtn) backBtn.style.display = 'none';
-    if (newSearchBtn) newSearchBtn.style.display = 'block';
-    if (backToListBtn) backToListBtn.style.display = 'block';
-  } else {
-    if (resultsDisplayBox) resultsDisplayBox.style.display = 'none';
-    if (errorMessageTab) errorMessageTab.style.display = 'block';
-    
-    const searchBtn = document.getElementById('searchButton');
-    const backBtn = document.getElementById('backButton');
-    const newSearchBtn = document.getElementById('newSearchButton');
-    const backToListBtn = document.getElementById('backToListButton');
-    
-    if (searchBtn) searchBtn.style.display = 'block';
-    if (backBtn) backBtn.style.display = 'block';
-    if (newSearchBtn) newSearchBtn.style.display = 'none';
-    if (backToListBtn) backToListBtn.style.display = 'none';
+    alert("عذراً، لم يتم العثور على بيانات مطابقة. يرجى التحقق من المدخلات.");
   }
 }
 
-// Hide empty error
-function hideEmptyFieldError() {
-  const emptyFieldsErrorMessage = document.getElementById('emptyFieldsErrorMessage');
-  if (emptyFieldsErrorMessage) {
-    emptyFieldsErrorMessage.style.display = 'none';
-  }
-}
-
-// Reset
-function resetFormToInitialState() {
-  const identityNumberInput = document.getElementById('identityNumber');
-  const serviceCodeInput = document.getElementById('serviceCode');
-  const errorMessageTab = document.getElementById('errorMessageTab');
-  const emptyFieldsErrorMessage = document.getElementById('emptyFieldsErrorMessage');
-  const resultsDisplayBox = document.getElementById('resultsDisplayBox');
-  const searchButton = document.getElementById('searchButton');
-  const backButton = document.getElementById('backButton');
-  const newSearchButton = document.getElementById('newSearchButton');
-  const backToListButton = document.getElementById('backToListButton');
-  const loadingSpinnerElement = document.getElementById('loadingSpinnerElement');
-
-  if (identityNumberInput) identityNumberInput.value = '';
-  if (serviceCodeInput) serviceCodeInput.value = '';
-  if (errorMessageTab) errorMessageTab.style.display = 'none';
-  if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = 'none';
-  if (resultsDisplayBox) resultsDisplayBox.style.display = 'none';
+/**
+ * دالة رسم البيانات على واجهة العرض الرسمية لمنصة صحة
+ */
+function displayLeaveDetails(record) {
+  // مطابقة الحقول بالملي مع عناصر الـ HTML الخاصة بالتصميم الخاص بك
+  if(document.getElementById("res_name")) document.getElementById("res_name").innerText = record.name;
+  if(document.getElementById("res_issueDate")) document.getElementById("res_issueDate").innerText = record.issueDate;
+  if(document.getElementById("res_admissionDate")) document.getElementById("res_admissionDate").innerText = record.admissionDate;
+  if(document.getElementById("res_dischargeDate")) document.getElementById("res_dischargeDate").innerText = record.dischargeDate;
+  if(document.getElementById("res_duration")) document.getElementById("res_duration").innerText = record.leaveDuration;
+  if(document.getElementById("res_doctor")) document.getElementById("res_doctor").innerText = record.doctorName;
+  if(document.getElementById("res_job")) document.getElementById("res_job").innerText = record.jobTitle;
   
-  if (searchButton) {
-    searchButton.style.display = 'block';
-    searchButton.classList.remove('loading');
-    searchButton.disabled = false;
-  }
-  
-  if (backButton) backButton.style.display = 'block';
-  if (newSearchButton) newSearchButton.style.display = 'none';
-  if (backToListButton) backToListButton.style.display = 'none';
-  if (loadingSpinnerElement) loadingSpinnerElement.style.display = 'none';
-}
-
-// New search
-function performNewSearch() {
-  resetFormToInitialState();
-}
-
-// تحسين تجربة المستخدم على الجوال
-function optimizeForMobile() {
-  const inputs = document.querySelectorAll('input, select, textarea');
-  inputs.forEach(input => {
-    input.addEventListener('focus', function() {
-      window.scrollTo(0, 0);
-      document.body.scrollTop = 0;
-    });
-  });
-}
-
-// إغلاق القائمة عند النقر على رابط
-function closeMenuOnLinkClick() {
-  const menuLinks = document.querySelectorAll('.navigation-popup-menu a, .navigation-popup-menu button');
-  menuLinks.forEach(link => {
-    link.addEventListener('click', function() {
-      const navigationMenu = document.getElementById('navigationPopupMenu');
-      if (navigationMenu) {
-        navigationMenu.style.display = 'none';
-      }
-    });
-  });
-}
-
-// Init
-window.addEventListener('load', () => {
-  const mainHeader = document.getElementById('mainHeader');
-  if (mainHeader) {
-    mainHeader.classList.add('show');
-  }
-  
-  initializeApplicationData();
-  resetFormToInitialState();
-  optimizeForMobile();
-  closeMenuOnLinkClick();
-
-  const searchButton = document.getElementById('searchButton');
-  const serviceCodeInput = document.getElementById('serviceCode');
-  const identityNumberInput = document.getElementById('identityNumber');
-  const newSearchButton = document.getElementById('newSearchButton');
-
-  if (searchButton) {
-    searchButton.addEventListener('click', validateAndCheckData);
-  }
-  
-  if (serviceCodeInput) {
-    serviceCodeInput.addEventListener('input', hideEmptyFieldError);
-  }
-  
-  if (identityNumberInput) {
-    identityNumberInput.addEventListener('input', hideEmptyFieldError);
-  }
-  
-  if (newSearchButton) {
-    newSearchButton.addEventListener('click', performNewSearch);
-  }
-});
-
-// دالة الدخول كمسؤول
-function adminLogin() {
-  const password = prompt("أدخل كلمة المرور للدخول كمسؤول:");
-  const correctPassword = "12345";
-  if (password === correctPassword) {
-    window.location.href = "admin_inquiry.html";
-  } else if (password !== null) {
-    alert("كلمة المرور غير صحيحة ❌");
-  }
+  const resultCard = document.getElementById("resultCard");
+  if (resultCard) resultCard.style.display = "block"; // إظهار كرت النتائج الأنيق
 }
