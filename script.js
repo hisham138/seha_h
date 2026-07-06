@@ -1,282 +1,173 @@
 /**
- * سكريبت نظام منصة صحة - لوحة المسؤول لإدخال وتوثيق الإجازات المرضية حياً
- * التوثيق: تم تعديل الدالة لتخزين البيانات حياً في جدول Google Sheets مثبت الأبعاد
+ * سكريبت نظام منصة صحة - صفحة الاستعلام والتحقق الفوري للمستخدمين
+ * التوثيق: تم ربط هذا المحرك بالملي مع معرّفات صفحة الـ HTML المعتمدة لديك وقاعدة بيانات جوجل شيت
  */
 
-// ⚠️ ضع هنا الرابط الطويل الذي نسخته بنجاح من الـ Google Apps Script وينتهي بـ /exec
+// ⚠️ ضع هنا الرابط الطويل الخاص بك المستخرج من الـ Google Apps Script (ينتهي بـ /exec)
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/library/d/1Pkk39nLwlN4ryxHF9sz2EuL71knIPImGE-eIUxzLsfMxZt0E9W2zGUze/1";
 
+document.addEventListener("DOMContentLoaded", () => {
+  const searchButton = document.getElementById("searchButton");
+  const newSearchButton = document.getElementById("newSearchButton");
+  
+  // تفعيل مستمع الضغط لزر "استعلام"
+  if (searchButton) {
+    searchButton.addEventListener("click", validateAndCheckData);
+  }
+  
+  // تفعيل مستمع الضغط لزر "استعلام جديد" لإعادة تهيئة الواجهة
+  if (newSearchButton) {
+    newSearchButton.addEventListener("click", resetSearchForm);
+  }
+});
+
 /**
- * دالة حفظ البيانات المحدثة: ترسل البيانات حياً إلى الإكسل وتحتفظ بنسخة احتياطية محلية
- * @param {Object} leaveData - كائن يحتوي على تفاصيل الإجازة المرضية المعتمدة
+ * الدالة الأساسية: للتحقق من المدخلات وجلب البيانات حياً من جوجل شيت
  */
-async function saveToGoogleSheets(leaveData) {
-  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ضع_رابط")) {
-    console.error("خطأ: لم يتم تكوين رابط قاعدة بيانات Google Sheets بعد.");
-    return false;
+async function validateAndCheckData() {
+  const serviceCodeInput = document.getElementById("serviceCode");
+  const identityNumberInput = document.getElementById("identityNumber");
+  
+  const emptyFieldsErrorMessage = document.getElementById("emptyFieldsErrorMessage");
+  const errorMessageTab = document.getElementById("errorMessageTab");
+  const resultsDisplayBox = document.getElementById("resultsDisplayBox");
+  
+  const searchButtonText = document.getElementById("searchButtonText");
+  const loadingSpinnerElement = document.getElementById("loadingSpinnerElement");
+  const searchButton = document.getElementById("searchButton");
+  const newSearchButton = document.getElementById("newSearchButton");
+
+  // إخفاء رسائل الخطأ السابقة وصندوق النتائج
+  if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = "none";
+  if (errorMessageTab) errorMessageTab.style.display = "none";
+  if (resultsDisplayBox) { resultsDisplayBox.style.display = "none"; resultsDisplayBox.innerHTML = ""; }
+
+  const serviceCode = serviceCodeInput ? serviceCodeInput.value.trim() : "";
+  const identityNumber = identityNumberInput ? identityNumberInput.value.trim() : "";
+
+  // 1. التحقق من تعبئة الحقول
+  if (!serviceCode || !identityNumber) {
+    if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = "block";
+    return;
   }
 
-  try {
-    // 1. إرسال البيانات فورياً وحياً إلى سكريبت جوجل شيت عبر طلب POST آمن
-    await fetch(GOOGLE_SCRIPT_URL, {
-      method: "POST",
-      mode: "no-cors", // لمنع قيود الحماية والأمان أثناء الإرسال من الجوال
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(leaveData) // تحويل كائن البيانات إلى نص JSON مرن ليفهمه الإكسل
-    });
+  // 2. تشغيل مؤشر التحميل (Spinner) وتجميد الزر أثناء الجلب
+  if (searchButtonText) searchButtonText.style.display = "none";
+  if (loadingSpinnerElement) loadingSpinnerElement.style.display = "inline-block";
+  if (searchButton) searchButton.disabled = true;
 
-    // 2. عمل نسخة احتياطية في الذاكرة المحلية للمتصفح لزيادة استقرار النظام
-    const arr = JSON.parse(localStorage.getItem("seha_leaves") || "[]");
-    arr.push(leaveData);
-    localStorage.setItem("seha_leaves", JSON.stringify(arr));
-    
-    return true; // إرجاع نجاح العملية لفتح واجهة العرض والطباعة للمسؤول
+  try {
+    // 3. جلب البيانات حياً ومباشرة من سكريبت جوجل شيت المعتمد
+    const response = await fetch(GOOGLE_SCRIPT_URL);
+    const result = await response.json();
+    const leaves = result.leaves || [];
+
+    // 4. مطابقة نصية ذكية وصارمة لتفادي المسافات واختلاف الحروف
+    const matchedRecord = leaves.find(record => 
+      normalizeForCompare(record.serviceCode) === normalizeForCompare(serviceCode) &&
+      normalizeForCompare(record.nationalId) === normalizeForCompare(identityNumber)
+    );
+
+    // إيقاف مؤشر التحميل وإعادة نص الزر
+    if (searchButtonText) searchButtonText.style.display = "inline";
+    if (loadingSpinnerElement) loadingSpinnerElement.style.display = "none";
+    if (searchButton) searchButton.disabled = false;
+
+    if (matchedRecord) {
+      // 5. إذا وُجد التقرير، نقوم بصياغته وعرضه داخل صندوق النتائج بتصميم فاخر ومتوافق مع تطبيق صحتي
+      displayLeaveDetails(matchedRecord);
+      
+      // إخفاء حقول الإدخال وزر الاستعلام القديم لإفساح المجال للنتيجة
+      if (document.getElementById("serviceCodeContainer")) document.getElementById("serviceCodeContainer").style.display = "none";
+      if (document.getElementById("identityNumberContainer")) document.getElementById("identityNumberContainer").style.display = "none";
+      if (searchButton) searchButton.style.display = "none";
+      if (document.getElementById("backButton")) document.getElementById("backButton").style.display = "none";
+      
+      // إظهار زر استعلام جديد ورجوع للقائمة
+      if (newSearchButton) newSearchButton.style.display = "block";
+      if (document.getElementById("backToListButton")) document.getElementById("backToListButton").style.display = "block";
+    } else {
+      // إذا لم يتم العثور على المريض في الجدول
+      if (errorMessageTab) errorMessageTab.style.display = "block";
+    }
+
   } catch (error) {
-    console.error("فشل في مزامنة البيانات مع جوجل شيت:", error);
-    return false;
+    console.error("خطأ أثناء الاتصال بقاعدة بيانات جوجل شيت الحية:", error);
+    if (searchButtonText) searchButtonText.style.display = "inline";
+    if (loadingSpinnerElement) loadingSpinnerElement.style.display = "none";
+    if (searchButton) searchButton.disabled = false;
+    alert("عذراً، حدث خطأ أثناء الاتصال بالخادم الرئيسي. يرجى المحاولة لاحقاً.");
   }
 }
 
-// انتظر تحميل عناصر واجهة المستخدم بالكامل قبل تفعيل المستمعات البرمجية
-document.addEventListener("DOMContentLoaded", () => {
-  const submitBtn = document.getElementById("submit");
-  const toggleBtn = document.getElementById("toggleButton");
-  const alertError = document.getElementById("alerterror");
-  const alertError2 = document.getElementById("alerterror2");
-  const successAlert = document.getElementById("successAlert");
+/**
+ * دالة صياغة ورسم تفاصيل الإجازة المرضية المعتمدة بداخل كرت النتائج المصمم
+ */
+function displayLeaveDetails(record) {
+  const resultsDisplayBox = document.getElementById("resultsDisplayBox");
+  if (!resultsDisplayBox) return;
 
-  const nationalId = document.getElementById("national_id");
-  const patientName = document.getElementById("patientname");
-  const hospitalName = document.getElementById("hospitalname");
-  const issueDate = document.getElementById("issuedate");
-  const admissionDate = document.getElementById("admissiondate");
-  const dischargeDate = document.getElementById("dischargedate");
-  const leaveDuration = document.getElementById("leaveduration");
-  const doctorName = document.getElementById("doctorname");
-  const jobTitle = document.getElementById("jobtitle");
+  // تحويل كود نوع الإجازة إلى مسمى عربي مفهوم
+  let displayType = "إجازة مرضية (GSL)";
+  if (record.leaveType === "SPL") displayType = "إجازة مرافق مريض (PSL)";
+  else if (record.leaveType === "اعتيادية") displayType = "إجازة اعتيادية (NSL)";
 
-  const leaveCodeSection = document.getElementById("leaveCodeSection");
-  const leaveCodeDisplay = document.getElementById("leaveCodeDisplay");
-  const leaveTypeSelect = document.getElementById("leaveTypeSelect");
-  const copyLeaveBtn = document.getElementById("copyLeaveBtn");
-  const typeChips = document.querySelectorAll(".type-chip");
+  // بناء واجهة عرض تفصيلية وأنيقة تعكس الطابع الرسمي لمنصة صحة
+  resultsDisplayBox.innerHTML = `
+    <div style="background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: right; border-right: 6px solid #2e6fb9;">
+      <h3 style="color: #2e6fb9; margin-top: 0; border-bottom: 2px solid #f0f4f8; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-check-circle" style="color: #2ec4b6;"></i> تقرير طبي معتمد ورسمي
+      </h3>
+      <div style="display: grid; grid-template-columns: 1fr; gap: 12px; font-size: 15px; color: #333333; margin-top: 15px;">
+        <div><strong>👤 اسم المريض:</strong> <span style="color: #1a1a1a; font-weight: bold;">${record.name}</span></div>
+        <div><strong>🆔 رقم الهوية / الإقامة:</strong> <span>${record.nationalId}</span></div>
+        <div><strong>🔢 رمز الخدمة المعتمد:</strong> <span style="font-family: monospace; font-weight: bold; color: #2e6fb9;">${record.serviceCode}</span></div>
+        <div><strong>📋 نوع الإجازة:</strong> <span>${displayType}</span></div>
+        <div><strong>📅 تاريخ الدخول:</strong> <span>${record.admissionDate}</span></div>
+        <div><strong>📅 تاريخ الخروج:</strong> <span>${record.dischargeDate}</span></div>
+        <div><strong>⏱️ مدة الإجازة الممنوحة:</strong> <span style="background: #eef5fc; color: #2e6fb9; padding: 2px 10px; border-radius: 20px; font-weight: bold;">${record.leaveDuration} أيام</span></div>
+        <div><strong>🩺 الطبيب الممارس:</strong> <span>${record.doctorName} (${record.jobTitle})</span></div>
+        <div><strong>🗓️ تاريخ إصدار التقرير:</strong> <span>${record.issueDate}</span></div>
+      </div>
+    </div>
+  `;
+  
+  resultsDisplayBox.style.display = "block";
+}
 
-  // دالة توليد رمز الخدمة العشوائي المكون من 11 رقماً
-  function generateLeaveCode(length = 11) {
-    let digits = "";
-    for (let i = 0; i < length; i++) digits += Math.floor(Math.random() * 10);
-    return digits;
+/**
+ * دالة تنظيف وإعادة الواجهة لحالتها الطبيعية لإجراء استعلام جديد
+ */
+function resetSearchForm() {
+  if (document.getElementById("serviceCode")) document.getElementById("serviceCode").value = "";
+  if (document.getElementById("identityNumber")) document.getElementById("identityNumber").value = "";
+  
+  if (document.getElementById("serviceCodeContainer")) document.getElementById("serviceCodeContainer").style.display = "block";
+  if (document.getElementById("identityNumberContainer")) document.getElementById("identityNumberContainer").style.display = "block";
+  
+  if (document.getElementById("searchButton")) document.getElementById("searchButton").style.display = "block";
+  if (document.getElementById("backButton")) document.getElementById("backButton").style.display = "block";
+  
+  if (document.getElementById("newSearchButton")) document.getElementById("newSearchButton").style.display = "none";
+  if (document.getElementById("backToListButton")) document.getElementById("backToListButton").style.display = "none";
+  if (document.getElementById("resultsDisplayBox")) {
+    document.getElementById("resultsDisplayBox").style.display = "none";
+    document.getElementById("resultsDisplayBox").innerHTML = "";
   }
+}
 
-  // حساب مدة الإجازة تلقائياً بالأيام بناءً على تاريخ الدخول والخروج
-  function calculateLeaveDuration() {
-    if (!admissionDate || !dischargeDate || !leaveDuration) return;
-    const s = admissionDate.value;
-    const e = dischargeDate.value;
-    if (!s || !e) return;
-    const start = new Date(s);
-    const end = new Date(e);
-    if (isNaN(start) || isNaN(end) || end < start) { leaveDuration.value = ""; return; }
-    const diffDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
-    leaveDuration.value = diffDays;
-  }
-  if (admissionDate) admissionDate.addEventListener("change", calculateLeaveDuration);
-  if (dischargeDate) dischargeDate.addEventListener("change", calculateLeaveDuration);
+/**
+ * دالة معالجة لتفادي الأخطاء الناجمة عن الفراغات وحالة الأحرف
+ */
+function normalizeForCompare(text) {
+  if (!text) return "";
+  return String(text).trim().toLowerCase();
+}
 
-  function normalize(v) {
-    return String(v || "").trim();
-  }
-
-  function showTemporaryAlert(el, ms = 2500) {
-    if (!el) return;
-    el.style.display = "block";
-    setTimeout(() => { el.style.display = "none"; }, ms);
-  }
-
-  // تحديث الرمز المعروض للمسؤول بناءً على نوع الإجازة المختار
-  function updateLeaveDisplay(code, type) {
-    if (!leaveCodeDisplay) return;
-    leaveCodeDisplay.dataset.code = code;
-    
-    if (type) {
-      let convertedType = type;
-      if (type === "SPL") convertedType = "GSL";
-      else if (type === "GPL") convertedType = "PSL";
-      else if (type === "اعتيادية") convertedType = "NSL";
-      
-      leaveCodeDisplay.textContent = convertedType + code;
-    } else {
-      leaveCodeDisplay.textContent = code;
-    }
-  }
-
-  typeChips.forEach(chip => {
-    chip.addEventListener("click", () => {
-      const val = chip.dataset.value || "";
-      typeChips.forEach(c => c.classList.remove("active"));
-      if (val) chip.classList.add("active");
-      if (leaveTypeSelect) leaveTypeSelect.value = val;
-      const code = leaveCodeDisplay?.dataset?.code || "";
-      updateLeaveDisplay(code, val);
-    });
-  });
-
-  if (leaveTypeSelect) {
-    leaveTypeSelect.addEventListener("change", () => {
-      const val = leaveTypeSelect.value || "";
-      typeChips.forEach(c => {
-        c.classList.toggle("active", c.dataset.value === val);
-      });
-      const code = leaveCodeDisplay?.dataset?.code || "";
-      updateLeaveDisplay(code, val);
-    });
-  }
-
-  // معالج الحدث عند الضغط على زر "إنشاء وحفظ الإجازة"
-  if (submitBtn) {
-    submitBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      if (alertError) alertError.style.display = "none";
-      if (alertError2) alertError2.style.display = "none";
-      if (successAlert) successAlert.style.display = "none";
-
-      calculateLeaveDuration();
-
-      const nid = normalize(nationalId?.value);
-      const place = normalize(hospitalName?.value) || normalize(patientName?.value);
-      const issue = normalize(issueDate?.value);
-      const from = normalize(admissionDate?.value);
-      const to = normalize(dischargeDate?.value);
-      const days = normalize(leaveDuration?.value);
-      const doc = normalize(doctorName?.value);
-      const job = normalize(jobTitle?.value);
-
-      // التحقق من ملء كافة الحقول قبل التوجيه لقاعدة البيانات
-      if (!nid || !place || !issue || !from || !to || !days || !doc || !job) {
-        if (alertError) { alertError.textContent = "الرجاء تعبئة جميع الحقول المطلوبة."; alertError.style.display = "block"; }
-        return;
-      }
-
-      try {
-        const leaveCode = generateLeaveCode(11);
-        const leaveType = String(leaveTypeSelect?.value || "").trim();
-
-        // بناء كائن البيانات المتوافق مع متطلبات الأبعاد في جدول جوجل شيت
-        const leaveObj = {
-          leaveCode: leaveCode,
-          serviceCode: leaveCode,
-          nationalId: nid,
-          idNumber: nid,
-          name: normalize(patientName?.value),
-          hospitalName: place,
-          issueDate: issue,
-          admissionDate: from,
-          dischargeDate: to,
-          leaveDuration: days,
-          doctorName: doc,
-          jobTitle: job,
-          leaveType: leaveType,
-          date: issue
-        };
-
-        // استدعاء دالة المزامنة الحية مع جوجل شيت التي قمنا بتحديثها
-        const saveResult = await saveToGoogleSheets(leaveObj);
-        
-        if (saveResult) {
-          updateLeaveDisplay(leaveObj.leaveCode, leaveType);
-
-          if (leaveCodeSection) leaveCodeSection.style.display = "flex";
-          if (submitBtn) submitBtn.style.display = "none";
-          if (toggleBtn) toggleBtn.style.display = "inline-block";
-
-          // رسالة تأكيد للمستخدم بنجاح العمل والمزامنة الحية
-          alert(`تم إنشاء الإجازة بنجاح ومزامنتها حياً مع جدول البيانات! ✅\n\nرمز الإجازة: ${leaveCode}`);
-          
-          if (successAlert) showTemporaryAlert(successAlert, 2000);
-        } else {
-          throw new Error("فشل في الحفظ");
-        }
-      } catch (err) {
-        console.error("خطأ أثناء الإنشاء:", err);
-        if (alertError2) { alertError2.textContent = "خطأ أثناء الإنشاء الفوري في قاعدة البيانات"; alertError2.style.display = "block"; }
-      }
-    });
-  }
-
-  // معالج تفعيل زر نسخ رمز الإجازة التلقائي
-  if (copyLeaveBtn) {
-    copyLeaveBtn.addEventListener("click", async () => {
-      const code = leaveCodeDisplay?.dataset?.code || "";
-      const type = leaveTypeSelect?.value || "";
-      
-      if (!code) return;
-      
-      let textToCopy = code;
-      
-      if (type) {
-        let convertedType = type;
-        if (type === "SPL") convertedType = "GSL";
-        else if (type === "GPL") convertedType = "PSL";
-        else if (type === "اعتيادية") convertedType = "NSL";
-        
-        textToCopy = convertedType + code;
-      }
-      
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(textToCopy);
-        } else {
-          const ta = document.createElement("textarea");
-          ta.value = textToCopy;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand("copy");
-          document.body.removeChild(ta);
-        }
-        const orig = copyLeaveBtn.textContent;
-        copyLeaveBtn.textContent = "تم النسخ";
-        copyLeaveBtn.disabled = true;
-        setTimeout(() => { 
-          copyLeaveBtn.textContent = orig || "نسخ الرمز"; 
-          copyLeaveBtn.disabled = false; 
-        }, 1200);
-      } catch (e) {
-        console.error("فشل النسخ:", e);
-        if (alertError2) showTemporaryAlert(alertError2, 1400);
-      }
-    });
-  }
-
-  // زر إفراغ الحقول وتجهيز الواجهة لإدخال مريض جديد آخر
-  if (toggleBtn) {
-    toggleBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (nationalId) nationalId.value = "";
-      if (patientName) patientName.value = "";
-      if (hospitalName) hospitalName.value = "";
-      if (issueDate) issueDate.value = "";
-      if (admissionDate) admissionDate.value = "";
-      if (dischargeDate) dischargeDate.value = "";
-      if (leaveDuration) leaveDuration.value = "";
-      if (doctorName) doctorName.value = "";
-      if (jobTitle) jobTitle.value = "";
-      if (leaveTypeSelect) leaveTypeSelect.value = "";
-
-      typeChips.forEach(c => c.classList.remove("active"));
-      if (leaveCodeDisplay) {
-        leaveCodeDisplay.textContent = "";
-        delete leaveCodeDisplay.dataset.code;
-      }
-
-      if (leaveCodeSection) leaveCodeSection.style.display = "none";
-      if (alertError) alertError.style.display = "none";
-      if (alertError2) alertError2.style.display = "none";
-      if (successAlert) successAlert.style.display = "none";
-
-      toggleBtn.style.display = "none";
-      if (submitBtn) submitBtn.style.display = "inline-block";
-    });
-  }
-});
+/**
+ * دالة مساعدة تُستدعى من الـ HTML لإخفاء رسالة خطأ الحقول الفارغة تلقائياً عند بدء الكتابة
+ */
+function hideEmptyFieldError() {
+  const emptyFieldsErrorMessage = document.getElementById("emptyFieldsErrorMessage");
+  if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = "none";
+                                                              }
