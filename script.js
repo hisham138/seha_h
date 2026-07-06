@@ -4,7 +4,7 @@
  */
 
 // ⚠️ ضع هنا الرابط الطويل الذي نسخته بنجاح من الـ Google Apps Script وينتهي بـ /exec
-const GOOGLE_SCRIPT_URL = "t.google.com/macros/s/AKfycbwa-SWU2u88TILv44ccxrqkL-2z3DfcVjZ46g3SDFvXS7N-9skAwAJc8lag5e7wMqxlfQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/library/d/1Pkk39nLwlN4ryxHF9sz2EuL71knIPImGE-eIUxzLsfMxZt0E9W2zGUze/1";
 
 /**
  * دالة حفظ البيانات المحدثة: ترسل البيانات حياً إلى الإكسل وتحتفظ بنسخة احتياطية محلية
