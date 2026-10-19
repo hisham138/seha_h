@@ -1,56 +1,60 @@
-# منصة صحة — مشروع متكامل (Vercel + GitHub)
+# Seha Platform - منصة صحة
 
-## محتويات المشروع
+## هيكل المشروع
 ```
 seha-full/
-├── public/
-│   ├── index.html          صفحة التحقق (الواجهة الرئيسية)
-│   ├── stylee.css          أنماط الواجهة
-│   ├── script.js           منطق البحث في قاعدة البيانات
-│   ├── data.json           قاعدة بيانات الإجازات (تُحدَّث تلقائياً)
-│   ├── VisitReport.html    نموذج مشهد المراجعة
-│   └── MedicalReport.html  نموذج التقرير الطبي / الإجازة المرضية
 ├── api/
-│   └── save.js             Serverless Function لحفظ إجازة جديدة في data.json
-├── vercel.json
+│   └── save.js              # نقطة API لحفظ التقارير في data.json عبر GitHub
+├── public/
+│   ├── index.html           # صفحة الاستعلام (/ و /verify)
+│   ├── MedicalReport.html   # صفحة إدخال التقرير الطبي (/medical)
+│   ├── VisitReport.html     # صفحة إدخال تقرير الزيارة (/visit)
+│   ├── script.js            # منطق صفحة الاستعلام
+│   ├── stylee.css           # التنسيقات
+│   └── data.json            # قاعدة البيانات (تُحدّث تلقائياً)
 ├── package.json
+├── vercel.json              # إعدادات Vercel والمسارات
 └── README.md
 ```
 
-## آلية العمل
-1. تفتح `VisitReport.html` أو `MedicalReport.html`، تُدخل البيانات وتضغط **توليد التقرير النهائي**.
-2. يقوم الكود قبل فتح نافذة الطباعة بإرسال بيانات الإجازة إلى `/api/save`.
-3. الـ Function تحرّر `public/data.json` مباشرة في GitHub، فتتحدّث على Vercel خلال ثوانٍ.
-4. عند زيارة الصفحة الرئيسية وإدخال **رمز الإجازة + رقم الهوية**، يظهر السجل فوراً.
+## تدفق العمل
+1. افتح `/medical` أو `/visit` → أدخل بيانات التقرير → اطبع.
+2. عند الطباعة يُرسل التقرير تلقائياً إلى `/api/save` → يُحفظ في `public/data.json` داخل مستودع GitHub.
+3. زر التحقق في التقرير المطبوع يفتح `/` (صفحة الاستعلام).
+4. أدخل **رمز الخدمة** + **رقم الهوية** → تظهر بيانات التقرير.
 
-## خطوات النشر
+## النشر على GitHub + Vercel
 
-### 1) أنشئ مستودعاً جديداً في GitHub
-- ارفع كامل محتويات هذا المجلد كما هو.
+### 1) رفع المشروع إلى GitHub
+GitHub لا يقبل ملفات zip، يقبل الملفات والمجلدات. لديك ثلاث طرق:
 
-### 2) أنشئ Token من GitHub
-- Settings → Developer Settings → Personal access tokens → **Fine-grained tokens** → Generate
-- Repository access: حدّد المستودع الذي رفعت إليه المشروع.
-- Permissions → Repository → **Contents: Read & write**.
-- انسخ الـ Token (يبدأ بـ `github_pat_...`).
+**أ. عبر واجهة GitHub (أسهل):**
+- أنشئ مستودع جديد (Empty repository).
+- اضغط **Add file → Upload files**.
+- اسحب **محتويات** مجلد `seha-full` (لا المجلد نفسه): `api/`, `public/`, `package.json`, `vercel.json`, `README.md`.
+  - ملاحظة: GitHub يقبل سحب المجلدات بالكامل في ال��تصفح (Chrome/Edge/Firefox).
+- اضغط **Commit changes**.
 
-### 3) أنشئ مشروعاً في Vercel
-- Import المستودع. الإطار: **Other**. مجلد Output: `public`.
+**ب. عبر Git (موصى به):**
+```bash
+cd seha-full
+git init
+git add .
+git commit -m "initial"
+git branch -M main
+git remote add origin https://github.com/USERNAME/REPO.git
+git push -u origin main
+```
 
-### 4) أضف متغيرات البيئة في Vercel (Settings → Environment Variables)
-| الاسم            | القيمة                                  |
-|------------------|------------------------------------------|
-| `GITHUB_TOKEN`   | الـ Token من الخطوة 2                    |
-| `GITHUB_OWNER`   | اسم مستخدمك / منظمتك في GitHub          |
-| `GITHUB_REPO`    | اسم المستودع                             |
-| `GITHUB_BRANCH`  | `main` (أو الفرع المستخدم)              |
-| `FILE_PATH`      | `public/data.json`                       |
-| `ADMIN_TOKEN`    | (اختياري) كلمة سر لمنع الإضافة العامة   |
+**ج. عبر GitHub Desktop:** اسحب المجلد إلى التطبيق ثم Publish.
 
-### 5) أعد النشر (Redeploy) بعد إضافة المتغيرات.
+### 2) متغيرات البيئة المطلوبة في Vercel
+- `GITHUB_TOKEN` — Fine-grained token (Contents: Read & write)
+- `GITHUB_OWNER` — اسم المستخدم/المنظمة
+- `GITHUB_REPO` — اسم المستودع
+- `GITHUB_BRANCH` — `main`
+- `FILE_PATH` — `public/data.json`
+- `ADMIN_TOKEN` (اختياري)
 
-## ملاحظات
-- يتم منع التكرار تلقائياً (نفس `leaveCode` + `nationalId`).
-- يمكن فتح التحقق بالرابط مباشرةً: `https://yourdomain/?code=XXXX&id=YYYY`
-- لزيادة الأمان فعّل `ADMIN_TOKEN` وأضِفه في كود التقرير عند `fetch('/api/save', { headers: { 'X-Admin-Token': '...' } })`.
-- التخزين دائم لأنه ملف داخل المستودع نفسه — لا حاجة لقاعدة بيانات خارجية.
+### 3) النشر
+- Import repo في Vercel → Framework: **Other** → Output: `public` → Deploy.

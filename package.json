@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "description": "منصة صحة - إصدار التقارير وقاعدة بيانات الإجازات المرضية",
-  "engines": { "node": ">=18" }
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@octokit/rest": "^20.0.2"
+  }
 }
