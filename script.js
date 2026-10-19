@@ -1,173 +1,296 @@
-/**
- * سكريبت نظام منصة صحة - صفحة الاستعلام والتحقق الفوري للمستخدمين
- * التوثيق: تم ربط هذا المحرك بالملي مع معرّفات صفحة الـ HTML المعتمدة لديك وقاعدة بيانات جوجل شيت
- */
+// Toggle navigation menu
+function toggleNavigationMenu() {
+  const navigationMenu = document.getElementById('navigationPopupMenu');
+  if (navigationMenu) {
+    navigationMenu.style.display = navigationMenu.style.display === 'flex' ? 'none' : 'flex';
+  }
+}
 
-// ⚠️ ضع هنا الرابط الطويل الخاص بك المستخرج من الـ Google Apps Script (ينتهي بـ /exec)
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/library/d/1Pkk39nLwlN4ryxHF9sz2EuL71knIPImGE-eIUxzLsfMxZt0E9W2zGUze/1";
+// Helpers
+function normalize(v) {
+  return String(v || "").trim();
+}
+function normalizeForCompare(v) {
+  return String(v || "").replace(/\s+/g, "").trim().toLowerCase();
+}
+function digitsOnly(v) {
+  return String(v || "").replace(/\D/g, "");
+}
 
-document.addEventListener("DOMContentLoaded", () => {
-  const searchButton = document.getElementById("searchButton");
-  const newSearchButton = document.getElementById("newSearchButton");
+// دالة لتحميل البيانات من ملف JSON
+async function loadLeavesFromJSON() {
+  try {
+    const response = await fetch('./data.json');
+    const data = await response.json();
+    return data.leaves || [];
+  } catch (error) {
+    console.log('جاري استخدام البيانات المحلية');
+    return [];
+  }
+}
+
+// دالة للبحث في Google Sheets (معلقة حالياً)
+async function searchInGoogleSheets(serviceCode, identityNumber) {
+  return null;
+}
+
+// Initialize sample data
+function initializeApplicationData() {
+  if (!localStorage.getItem("seha_leaves")) {
+    localStorage.setItem("seha_leaves", JSON.stringify([]));
+  }
+}
+
+// Show result (محسنة للهواتف)
+function showResultRecord(record) {
+  const resultsDisplayBox = document.getElementById('resultsDisplayBox');
+  if (resultsDisplayBox) {
+    resultsDisplayBox.innerHTML = `
+      <div class="information-label">الاسم:</div><div class="information-data">${normalize(record.name) || "-"}</div>
+      <div class="information-label">تاريخ إصدار تقرير الإجازة:</div><div class="information-data">${normalize(record.issueDate || record.date) || "-"}</div>
+      <div class="information-label">تبدأ من:</div><div class="information-data">${normalize(record.admissionDate || record.from) || "-"}</div>
+      <div class="information-label">وحتى:</div><div class="information-data">${normalize(record.dischargeDate || record.to) || "-"}</div>
+      <div class="information-label">المدة بالأيام:</div><div class="information-data">${normalize(record.leaveDuration || record.days) || "-"}</div>
+      <div class="information-label">اسم الطبيب:</div><div class="information-data">${normalize(record.doctorName || record.doctor) || "-"}</div>
+      <div class="information-label">المسمى الوظيفي:</div><div class="information-data">${normalize(record.jobTitle || record.title) || "-"}</div>
+      
+    `;
+    resultsDisplayBox.style.display = 'block';
+  }
+}
+
+// إظهار/إخفاء عناصر الصفحة العامة (مسار التنقل + الأيقونات العائمة)
+// قبل الاستعلام: ظاهرة | أثناء وبعد الاستعلام: مخفية
+function setPageChromeVisible(visible) {
+  const selectors = [
+    '.breadcrumb-container',
+    '.accessibility-widget',
+    '.floating-container',
+    '.chat-widget-wrapper',
+    '.floating-widget-pill'
+  ];
+  selectors.forEach((sel) => {
+    document.querySelectorAll(sel).forEach((el) => {
+      el.style.display = visible ? '' : 'none';
+      el.style.visibility = visible ? 'visible' : 'hidden';
+    });
+  });
+
+  // الترويسة (الشعار) تبقى ظاهرة دائماً
+  const header = document.querySelector('.top-header');
+  if (header) { header.style.display = 'flex'; header.style.visibility = 'visible'; }
+}
+
+function keepPageChromeVisible() {
+  setPageChromeVisible(true);
+}
+
+// Main Search
+async function validateAndCheckData(e) {
+  if (e && e.preventDefault) e.preventDefault();
+
+  const identityNumberInput = document.getElementById('identityNumber');
+  const serviceCodeInput = document.getElementById('serviceCode');
   
-  // تفعيل مستمع الضغط لزر "استعلام"
+  if (!identityNumberInput || !serviceCodeInput) return;
+
+  const identityNumber = normalize(identityNumberInput.value);
+  const serviceCode = normalize(serviceCodeInput.value);
+
+  const emptyFieldsErrorMessage = document.getElementById('emptyFieldsErrorMessage');
+  const searchButton = document.getElementById('searchButton');
+  const loadingSpinnerElement = document.getElementById('loadingSpinnerElement');
+  const errorMessageTab = document.getElementById("errorMessageTab");
+  const resultsDisplayBox = document.getElementById("resultsDisplayBox");
+
+  if (!identityNumber || !serviceCode) {
+    if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = 'block';
+    if (errorMessageTab) errorMessageTab.style.display = 'none';
+    if (resultsDisplayBox) resultsDisplayBox.style.display = 'none';
+    return;
+  } else {
+    if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = 'none';
+  }
+
+  // أثناء الاستعلام: إخفاء مسار التنقل والأيقونات العامة
+  setPageChromeVisible(false);
+
+  if (loadingSpinnerElement) loadingSpinnerElement.style.display = 'inline-block';
   if (searchButton) {
-    searchButton.addEventListener("click", validateAndCheckData);
+    searchButton.classList.add('loading');
+    searchButton.disabled = true;
+  }
+
+  // البحث في البيانات من ملف JSON
+  const jsonData = await loadLeavesFromJSON();
+  const targetCodeDigits = digitsOnly(serviceCode);
+  const targetIdDigits = digitsOnly(identityNumber);
+
+  let found = jsonData.find(rec => {
+    const recordedCodeDigits = digitsOnly(normalize(rec.leaveCode || rec.serviceCode || ""));
+    const recordedIdDigits = digitsOnly(normalize(rec.nationalId || rec.idNumber || ""));
+    return recordedCodeDigits === targetCodeDigits && recordedIdDigits === targetIdDigits;
+  });
+
+  // إذا لم يجد في JSON، يبحث في localStorage
+  if (!found) {
+    const stored = JSON.parse(localStorage.getItem("seha_leaves") || "[]");
+    found = stored.find(rec => {
+      const recordedCodeDigits = digitsOnly(normalize(rec.leaveCode || rec.serviceCode || ""));
+      const recordedIdDigits = digitsOnly(normalize(rec.nationalId || rec.idNumber || ""));
+      return recordedCodeDigits === targetCodeDigits && recordedIdDigits === targetIdDigits;
+    });
+  }
+
+  if (loadingSpinnerElement) loadingSpinnerElement.style.display = 'none';
+  if (searchButton) {
+    searchButton.classList.remove('loading');
+    searchButton.disabled = false;
+  }
+
+  // بعد الاستعلام: تبقى مخفية
+  setPageChromeVisible(false);
+
+  if (found) {
+    showResultRecord(found);
+    if (errorMessageTab) errorMessageTab.style.display = 'none';
+    
+    const searchBtn = document.getElementById('searchButton');
+    const backBtn = document.getElementById('backButton');
+    const newSearchBtn = document.getElementById('newSearchButton');
+    const backToListBtn = document.getElementById('backToListButton');
+    
+    if (searchBtn) searchBtn.style.display = 'none';
+    if (backBtn) backBtn.style.display = 'none';
+    if (newSearchBtn) newSearchBtn.style.display = 'block';
+    if (backToListBtn) backToListBtn.style.display = 'block';
+  } else {
+    if (resultsDisplayBox) resultsDisplayBox.style.display = 'none';
+    if (errorMessageTab) errorMessageTab.style.display = 'block';
+    
+    const searchBtn = document.getElementById('searchButton');
+    const backBtn = document.getElementById('backButton');
+    const newSearchBtn = document.getElementById('newSearchButton');
+    const backToListBtn = document.getElementById('backToListButton');
+    
+    if (searchBtn) searchBtn.style.display = 'block';
+    if (backBtn) backBtn.style.display = 'block';
+    if (newSearchBtn) newSearchBtn.style.display = 'none';
+    if (backToListBtn) backToListBtn.style.display = 'none';
+  }
+}
+
+// Hide empty error
+function hideEmptyFieldError() {
+  const emptyFieldsErrorMessage = document.getElementById('emptyFieldsErrorMessage');
+  if (emptyFieldsErrorMessage) {
+    emptyFieldsErrorMessage.style.display = 'none';
+  }
+}
+
+// Reset
+function resetFormToInitialState() {
+  const identityNumberInput = document.getElementById('identityNumber');
+  const serviceCodeInput = document.getElementById('serviceCode');
+  const errorMessageTab = document.getElementById('errorMessageTab');
+  const emptyFieldsErrorMessage = document.getElementById('emptyFieldsErrorMessage');
+  const resultsDisplayBox = document.getElementById('resultsDisplayBox');
+  const searchButton = document.getElementById('searchButton');
+  const backButton = document.getElementById('backButton');
+  const newSearchButton = document.getElementById('newSearchButton');
+  const backToListButton = document.getElementById('backToListButton');
+  const loadingSpinnerElement = document.getElementById('loadingSpinnerElement');
+
+  if (identityNumberInput) identityNumberInput.value = '';
+  if (serviceCodeInput) serviceCodeInput.value = '';
+  if (errorMessageTab) errorMessageTab.style.display = 'none';
+  if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = 'none';
+  if (resultsDisplayBox) resultsDisplayBox.style.display = 'none';
+  
+  if (searchButton) {
+    searchButton.style.display = 'block';
+    searchButton.classList.remove('loading');
+    searchButton.disabled = false;
   }
   
-  // تفعيل مستمع الضغط لزر "استعلام جديد" لإعادة تهيئة الواجهة
+  if (backButton) backButton.style.display = 'block';
+  if (newSearchButton) newSearchButton.style.display = 'none';
+  if (backToListButton) backToListButton.style.display = 'none';
+  if (loadingSpinnerElement) loadingSpinnerElement.style.display = 'none';
+}
+
+// New search
+function performNewSearch() {
+  resetFormToInitialState();
+  setPageChromeVisible(true);
+}
+
+// تحسين تجربة المستخدم على الجوال
+function optimizeForMobile() {
+  const inputs = document.querySelectorAll('input, select, textarea');
+  inputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0;
+    });
+  });
+}
+
+// إغلاق القائمة عند النقر على رابط
+function closeMenuOnLinkClick() {
+  const menuLinks = document.querySelectorAll('.navigation-popup-menu a, .navigation-popup-menu button');
+  menuLinks.forEach(link => {
+    link.addEventListener('click', function() {
+      const navigationMenu = document.getElementById('navigationPopupMenu');
+      if (navigationMenu) {
+        navigationMenu.style.display = 'none';
+      }
+    });
+  });
+}
+
+// Init
+window.addEventListener('load', () => {
+  const mainHeader = document.getElementById('mainHeader');
+  if (mainHeader) {
+    mainHeader.classList.add('show');
+  }
+  
+  setPageChromeVisible(true);
+  initializeApplicationData();
+  resetFormToInitialState();
+  optimizeForMobile();
+  closeMenuOnLinkClick();
+
+  const searchButton = document.getElementById('searchButton');
+  const serviceCodeInput = document.getElementById('serviceCode');
+  const identityNumberInput = document.getElementById('identityNumber');
+  const newSearchButton = document.getElementById('newSearchButton');
+
+  if (searchButton) {
+    searchButton.addEventListener('click', validateAndCheckData);
+  }
+  
+  if (serviceCodeInput) {
+    serviceCodeInput.addEventListener('input', hideEmptyFieldError);
+  }
+  
+  if (identityNumberInput) {
+    identityNumberInput.addEventListener('input', hideEmptyFieldError);
+  }
+  
   if (newSearchButton) {
-    newSearchButton.addEventListener("click", resetSearchForm);
+    newSearchButton.addEventListener('click', performNewSearch);
   }
 });
 
-/**
- * الدالة الأساسية: للتحقق من المدخلات وجلب البيانات حياً من جوجل شيت
- */
-async function validateAndCheckData() {
-  const serviceCodeInput = document.getElementById("serviceCode");
-  const identityNumberInput = document.getElementById("identityNumber");
-  
-  const emptyFieldsErrorMessage = document.getElementById("emptyFieldsErrorMessage");
-  const errorMessageTab = document.getElementById("errorMessageTab");
-  const resultsDisplayBox = document.getElementById("resultsDisplayBox");
-  
-  const searchButtonText = document.getElementById("searchButtonText");
-  const loadingSpinnerElement = document.getElementById("loadingSpinnerElement");
-  const searchButton = document.getElementById("searchButton");
-  const newSearchButton = document.getElementById("newSearchButton");
-
-  // إخفاء رسائل الخطأ السابقة وصندوق النتائج
-  if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = "none";
-  if (errorMessageTab) errorMessageTab.style.display = "none";
-  if (resultsDisplayBox) { resultsDisplayBox.style.display = "none"; resultsDisplayBox.innerHTML = ""; }
-
-  const serviceCode = serviceCodeInput ? serviceCodeInput.value.trim() : "";
-  const identityNumber = identityNumberInput ? identityNumberInput.value.trim() : "";
-
-  // 1. التحقق من تعبئة الحقول
-  if (!serviceCode || !identityNumber) {
-    if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = "block";
-    return;
-  }
-
-  // 2. تشغيل مؤشر التحميل (Spinner) وتجميد الزر أثناء الجلب
-  if (searchButtonText) searchButtonText.style.display = "none";
-  if (loadingSpinnerElement) loadingSpinnerElement.style.display = "inline-block";
-  if (searchButton) searchButton.disabled = true;
-
-  try {
-    // 3. جلب البيانات حياً ومباشرة من سكريبت جوجل شيت المعتمد
-    const response = await fetch(GOOGLE_SCRIPT_URL);
-    const result = await response.json();
-    const leaves = result.leaves || [];
-
-    // 4. مطابقة نصية ذكية وصارمة لتفادي المسافات واختلاف الحروف
-    const matchedRecord = leaves.find(record => 
-      normalizeForCompare(record.serviceCode) === normalizeForCompare(serviceCode) &&
-      normalizeForCompare(record.nationalId) === normalizeForCompare(identityNumber)
-    );
-
-    // إيقاف مؤشر التحميل وإعادة نص الزر
-    if (searchButtonText) searchButtonText.style.display = "inline";
-    if (loadingSpinnerElement) loadingSpinnerElement.style.display = "none";
-    if (searchButton) searchButton.disabled = false;
-
-    if (matchedRecord) {
-      // 5. إذا وُجد التقرير، نقوم بصياغته وعرضه داخل صندوق النتائج بتصميم فاخر ومتوافق مع تطبيق صحتي
-      displayLeaveDetails(matchedRecord);
-      
-      // إخفاء حقول الإدخال وزر الاستعلام القديم لإفساح المجال للنتيجة
-      if (document.getElementById("serviceCodeContainer")) document.getElementById("serviceCodeContainer").style.display = "none";
-      if (document.getElementById("identityNumberContainer")) document.getElementById("identityNumberContainer").style.display = "none";
-      if (searchButton) searchButton.style.display = "none";
-      if (document.getElementById("backButton")) document.getElementById("backButton").style.display = "none";
-      
-      // إظهار زر استعلام جديد ورجوع للقائمة
-      if (newSearchButton) newSearchButton.style.display = "block";
-      if (document.getElementById("backToListButton")) document.getElementById("backToListButton").style.display = "block";
-    } else {
-      // إذا لم يتم العثور على المريض في الجدول
-      if (errorMessageTab) errorMessageTab.style.display = "block";
-    }
-
-  } catch (error) {
-    console.error("خطأ أثناء الاتصال بقاعدة بيانات جوجل شيت الحية:", error);
-    if (searchButtonText) searchButtonText.style.display = "inline";
-    if (loadingSpinnerElement) loadingSpinnerElement.style.display = "none";
-    if (searchButton) searchButton.disabled = false;
-    alert("عذراً، حدث خطأ أثناء الاتصال بالخادم الرئيسي. يرجى المحاولة لاحقاً.");
+// دالة الدخول كمسؤول
+function adminLogin() {
+  const password = prompt("أدخل كلمة المرور للدخول كمسؤول:");
+  const correctPassword = "12345";
+  if (password === correctPassword) {
+    window.location.href = "admin_inquiry.html";
+  } else if (password !== null) {
+    alert("كلمة المرور غير صحيحة ❌");
   }
 }
-
-/**
- * دالة صياغة ورسم تفاصيل الإجازة المرضية المعتمدة بداخل كرت النتائج المصمم
- */
-function displayLeaveDetails(record) {
-  const resultsDisplayBox = document.getElementById("resultsDisplayBox");
-  if (!resultsDisplayBox) return;
-
-  // تحويل كود نوع الإجازة إلى مسمى عربي مفهوم
-  let displayType = "إجازة مرضية (GSL)";
-  if (record.leaveType === "SPL") displayType = "إجازة مرافق مريض (PSL)";
-  else if (record.leaveType === "اعتيادية") displayType = "إجازة اعتيادية (NSL)";
-
-  // بناء واجهة عرض تفصيلية وأنيقة تعكس الطابع الرسمي لمنصة صحة
-  resultsDisplayBox.innerHTML = `
-    <div style="background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: right; border-right: 6px solid #2e6fb9;">
-      <h3 style="color: #2e6fb9; margin-top: 0; border-bottom: 2px solid #f0f4f8; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-        <i class="fas fa-check-circle" style="color: #2ec4b6;"></i> تقرير طبي معتمد ورسمي
-      </h3>
-      <div style="display: grid; grid-template-columns: 1fr; gap: 12px; font-size: 15px; color: #333333; margin-top: 15px;">
-        <div><strong>👤 اسم المريض:</strong> <span style="color: #1a1a1a; font-weight: bold;">${record.name}</span></div>
-        <div><strong>🆔 رقم الهوية / الإقامة:</strong> <span>${record.nationalId}</span></div>
-        <div><strong>🔢 رمز الخدمة المعتمد:</strong> <span style="font-family: monospace; font-weight: bold; color: #2e6fb9;">${record.serviceCode}</span></div>
-        <div><strong>📋 نوع الإجازة:</strong> <span>${displayType}</span></div>
-        <div><strong>📅 تاريخ الدخول:</strong> <span>${record.admissionDate}</span></div>
-        <div><strong>📅 تاريخ الخروج:</strong> <span>${record.dischargeDate}</span></div>
-        <div><strong>⏱️ مدة الإجازة الممنوحة:</strong> <span style="background: #eef5fc; color: #2e6fb9; padding: 2px 10px; border-radius: 20px; font-weight: bold;">${record.leaveDuration} أيام</span></div>
-        <div><strong>🩺 الطبيب الممارس:</strong> <span>${record.doctorName} (${record.jobTitle})</span></div>
-        <div><strong>🗓️ تاريخ إصدار التقرير:</strong> <span>${record.issueDate}</span></div>
-      </div>
-    </div>
-  `;
-  
-  resultsDisplayBox.style.display = "block";
-}
-
-/**
- * دالة تنظيف وإعادة الواجهة لحالتها الطبيعية لإجراء استعلام جديد
- */
-function resetSearchForm() {
-  if (document.getElementById("serviceCode")) document.getElementById("serviceCode").value = "";
-  if (document.getElementById("identityNumber")) document.getElementById("identityNumber").value = "";
-  
-  if (document.getElementById("serviceCodeContainer")) document.getElementById("serviceCodeContainer").style.display = "block";
-  if (document.getElementById("identityNumberContainer")) document.getElementById("identityNumberContainer").style.display = "block";
-  
-  if (document.getElementById("searchButton")) document.getElementById("searchButton").style.display = "block";
-  if (document.getElementById("backButton")) document.getElementById("backButton").style.display = "block";
-  
-  if (document.getElementById("newSearchButton")) document.getElementById("newSearchButton").style.display = "none";
-  if (document.getElementById("backToListButton")) document.getElementById("backToListButton").style.display = "none";
-  if (document.getElementById("resultsDisplayBox")) {
-    document.getElementById("resultsDisplayBox").style.display = "none";
-    document.getElementById("resultsDisplayBox").innerHTML = "";
-  }
-}
-
-/**
- * دالة معالجة لتفادي الأخطاء الناجمة عن الفراغات وحالة الأحرف
- */
-function normalizeForCompare(text) {
-  if (!text) return "";
-  return String(text).trim().toLowerCase();
-}
-
-/**
- * دالة مساعدة تُستدعى من الـ HTML لإخفاء رسالة خطأ الحقول الفارغة تلقائياً عند بدء الكتابة
- */
-function hideEmptyFieldError() {
-  const emptyFieldsErrorMessage = document.getElementById("emptyFieldsErrorMessage");
-  if (emptyFieldsErrorMessage) emptyFieldsErrorMessage.style.display = "none";
-                                                              }
